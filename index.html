@@ -28,8 +28,8 @@
         .bar-a { background-color: #10b981; }
         .bar-b { background-color: #f59e0b; }
         .bar-c { background-color: #ef4444; }
-        .bar-d { background-color: #6366f1; } /* Indigo para Clase D */
-        .bar-rej { background-color: #475569; } /* Slate oscuro para Rechazo */
+        .bar-d { background-color: #6366f1; }
+        .bar-rej { background-color: #475569; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -162,6 +162,9 @@
                                 <th class="bg-slate-700 text-white">Tierra TML %</th>
                                 <th class="bg-slate-700 text-white">Tierra TL %</th>
                                 <th class="bg-slate-700 text-white">Tierra TF %</th>
+                                <th class="bg-indigo-700 text-white">Comb. TML %</th>
+                                <th class="bg-indigo-700 text-white">Comb. TL %</th>
+                                <th class="bg-indigo-700 text-white">Comb. TF %</th>
                                 <th class="bg-slate-700 text-white">Otros Sabores %</th>
                                 <th>Mancha L/F %</th>
                                 <th>Bact. Leve %</th>
@@ -341,6 +344,7 @@
             let lotesMap = new Map();
             let camaronerasSet = new Set();
 
+            // 1. OMIPROD0016
             db.liquidaciones.forEach(row => {
                 let lote = (getVal(row, ['Lote']) || '').toString().trim();
                 if(!lote) return;
@@ -359,7 +363,9 @@
                         Gramaje_OC: parseNum(getVal(row, ['Gramaje OC'])),
                         Valor_Total: 0,
                         Clases: { A: 0, B: 0, C: 0, D: 0, RECHAZO: 0 },
-                        TML: 0, TL: 0, TF: 0, Sabor_Caract: 0, Otros_Sabores: 0
+                        TML: 0, TL: 0, TF: 0, 
+                        Combustible_TML: 0, Combustible_TL: 0, Combustible_TF: 0,
+                        Sabor_Caract: 0, Otros_Sabores: 0
                     });
                 }
                 let l = lotesMap.get(lote);
@@ -377,6 +383,7 @@
                 else if(claseStr === 'D') l.Clases.D += librasFilas;
             });
 
+            // 2. Metabisulfito
             let metaTemp = {};
             db.metabisulfito.forEach(row => {
                 let lote = (getVal(row, ['Lote']) || '').toString().trim();
@@ -392,6 +399,7 @@
                 metaTemp[lote].bactL += parseNum(getVal(row, ['E. hongo/bacteria leve (%)'])) * lbs;
             });
 
+            // 3. Sabores
             db.sabores.forEach(row => {
                 let lote = (getVal(row, ['Lote']) || '').toString().trim();
                 if(lotesMap.has(lote)) {
@@ -410,19 +418,22 @@
                     l.TML = parseNum(getVal(row, ['Sabor tierra entero muy leve %']));
                     l.TL = parseNum(getVal(row, ['Sabor tierra entero leve %']));
                     l.TF = parseNum(getVal(row, ['Sabor tierra entero fuerte %']));
-                    l.Tierra_Max = l.TML + l.TL + l.TF;
+                    
+                    l.Combustible_TML = parseNum(getVal(row, ['Sabor combustible entero muy leve %']));
+                    l.Combustible_TL = parseNum(getVal(row, ['Sabor combustible entero leve %']));
+                    l.Combustible_TF = parseNum(getVal(row, ['Sabor combustible entero fuerte %']));
                     
                     let sumaOtros = 0;
                     for (let key in row) {
                         if (key.trim().startsWith('Sabor') && key.trim().endsWith('%')) {
                             let k = key.toLowerCase();
-                            if (k.includes('entero') && !k.includes('caracteristico') && !k.includes('tierra')) {
+                            if (k.includes('entero') && !k.includes('caracteristico') && !k.includes('tierra') && !k.includes('combustible')) {
                                 sumaOtros += parseNum(row[key]);
                             }
                         }
                     }
                     l.Otros_Sabores = sumaOtros;
-                    l.Diesel = parseNum(getVal(row, ['Sabor combustible entero fuerte %']));
+                    l.Diesel = l.Combustible_TF; 
                 }
             });
 
@@ -655,6 +666,9 @@
                     <td class="bg-slate-50 font-medium">${d.TML.toFixed(1)}%</td>
                     <td class="bg-slate-50 font-medium">${d.TL.toFixed(1)}%</td>
                     <td class="bg-slate-50 font-medium">${d.TF.toFixed(1)}%</td>
+                    <td class="bg-indigo-50 font-medium text-indigo-700">${d.Combustible_TML.toFixed(1)}%</td>
+                    <td class="bg-indigo-50 font-medium text-indigo-700">${d.Combustible_TL.toFixed(1)}%</td>
+                    <td class="bg-indigo-50 font-bold text-indigo-900">${d.Combustible_TF.toFixed(1)}%</td>
                     <td class="bg-slate-50 font-bold text-slate-700">${d.Otros_Sabores.toFixed(1)}%</td>
                     <td>${mlf.toFixed(1)}%</td>
                     <td>${bac.toFixed(1)}%</td>
