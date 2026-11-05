@@ -1,1554 +1,744 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-50">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Ejecutivo de Control de Calidad y Rendimiento de Materia Prima</title>
+    <title>Dashboard Gerencial - Calidad y Rendimiento</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <!-- PapaParse for robust CSV parsing -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js y Plugin DataLabels -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- PapaParse para leer CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Inter Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Inter', sans-serif; color: #0f172a; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .tab-active { border-bottom: 2px solid #0f172a; color: #0f172a; font-weight: 600; }
-        .tab-inactive { color: #64748b; font-weight: 500; }
-        .tab-inactive:hover { color: #334155; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn.active { border-bottom: 2px solid #0f172a; color: #0f172a; font-weight: 600; }
+        .gerencial-table th { background-color: #1e293b; color: white; padding: 12px; text-align: left; font-size: 0.85rem; text-transform: uppercase; }
+        .gerencial-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        .badge-green { background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+        .badge-yellow { background-color: #fef08a; color: #854d0e; padding: 4px 8px; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+        .badge-red { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 9999px; font-weight: 600; font-size: 0.8rem; }
+        .bar-composition { display: flex; height: 12px; border-radius: 6px; overflow: hidden; width: 100%; min-width: 100px; background-color: #e2e8f0;}
+        .bar-a { background-color: #10b981; }
+        .bar-b { background-color: #f59e0b; }
+        .bar-c { background-color: #ef4444; }
+        .bar-d { background-color: #6366f1; } /* Indigo para Clase D */
+        .bar-rej { background-color: #475569; } /* Slate oscuro para Rechazo */
     </style>
 </head>
-<body class="min-h-full flex flex-col bg-slate-50">
+<body class="text-slate-800">
 
-    <!-- Top Corporate Header -->
-    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div class="flex items-center gap-3.5">
-                <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 shrink-0">
-                    <i class="fa-solid fa-chart-column text-lg"></i>
-                </div>
-                <div>
-                    <div class="flex items-center gap-2.5">
-                        <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">Control Ejecutivo de Materia Prima y Clasificación Organoléptica</h1>
-                        <span class="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Gerencia Financiera y Calidad</span>
-                    </div>
-                    <p class="text-xs text-slate-400">Consolidación ponderada por Lote &bull; Reclasificación automática de Camaroneras Oficiales</p>
-                </div>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2.5">
-                <!-- Status Badge -->
-                <div id="dataSourceBadge" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                    <span>Verificando CSVs en repositorio...</span>
-                </div>
-
-                <!-- Manual CSV Upload Drawer Button -->
-                <button id="btnToggleUpload" class="text-xs font-medium bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-folder-open text-slate-300"></i>
-                    <span>Cargar CSVs Locales</span>
-                </button>
-            </div>
+    <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Análisis de Calidad y Rendimiento Industrial</h1>
+            <p class="text-sm text-slate-500">Integración: Liquidación (OMIPROD), Defectos y Organoléptico</p>
         </div>
-
-        <!-- Collapsible Upload Panel for Local Testing -->
-        <div id="uploadDrawer" class="hidden bg-slate-800/95 border-t border-slate-700 px-4 sm:px-6 py-4">
-            <div class="max-w-[1440px] mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                <div class="space-y-1">
-                    <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Carga Manual o Reemplazo de Archivos CSV</h2>
-                    <p class="text-xs text-slate-400">En GitHub Pages el sistema lee automáticamente <code class="text-emerald-300 font-mono">./Sabor_Desglosado_Validado.csv</code> y <code class="text-emerald-300 font-mono">./Metabisulfito_Validado.csv</code>. Si abres este archivo localmente en tu PC, selecciónalos aquí:</p>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:w-auto">
-                    <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-700">
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">1. Sabor_Desglosado_Validado.csv</label>
-                        <input type="file" id="fileInputSabor" accept=".csv,.txt" class="block w-full text-xs text-slate-400 file:mr-2.5 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer">
-                    </div>
-                    <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-700">
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">2. Metabisulfito_Validado.csv</label>
-                        <input type="file" id="fileInputMeta" accept=".csv,.txt" class="block w-full text-xs text-slate-400 file:mr-2.5 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer">
-                    </div>
-                </div>
-            </div>
+        <div class="flex items-center gap-4">
+            <label class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-md cursor-pointer text-sm transition font-semibold">
+                <i class="fa-solid fa-upload mr-2"></i> Cargar CSVs Locales
+                <input type="file" id="fileInput" multiple accept=".csv" class="hidden">
+            </label>
+            <span id="status-indicator" class="text-xs font-semibold px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full">Esperando Datos...</span>
         </div>
     </header>
 
-    <!-- Subheader: Navigation Tabs & Global Filters -->
-    <div class="bg-white border-b border-slate-200 sticky top-[61px] z-20 shadow-xs">
-        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 py-2.5">
-            <!-- Tabs -->
-            <nav class="flex space-x-6 border-b xl:border-b-0 border-slate-200 pb-2 xl:pb-0">
-                <button id="tabBtnDegradacion" onclick="switchTab('degradacion')" class="tab-active py-2 text-sm flex items-center gap-2 transition">
-                    <i class="fa-solid fa-layer-group text-xs"></i>
-                    <span>1. Análisis de Degradación y Defectos Limitantes</span>
-                </button>
-                <button id="tabBtnProveedores" onclick="switchTab('proveedores')" class="tab-inactive py-2 text-sm flex items-center gap-2 transition">
-                    <i class="fa-solid fa-ranking-star text-xs"></i>
-                    <span>2. Ranking de Proveedores y Camaroneras Oficiales</span>
-                </button>
-            </nav>
+    <nav class="bg-white px-6 border-b border-slate-200 overflow-x-auto">
+        <ul class="flex gap-6 text-sm text-slate-500 min-w-max">
+            <li><button class="tab-btn active py-4 hover:text-slate-800 transition" onclick="openTab(event, 'tab1')">1. Rendimiento Industrial y Rechazo</button></li>
+            <li><button class="tab-btn py-4 hover:text-slate-800 transition" onclick="openTab(event, 'tab2')">2. Matriz Organoléptica y Lotes</button></li>
+            <li><button class="tab-btn py-4 hover:text-slate-800 transition" onclick="openTab(event, 'tab3')">3. Ranking de Proveedores</button></li>
+        </ul>
+    </nav>
 
-            <!-- Global Filters -->
-            <div class="flex flex-wrap items-center gap-2.5 text-xs">
-                <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                    <span class="text-slate-500 font-medium">Proveedor:</span>
-                    <select id="filterProveedor" class="bg-transparent font-semibold text-slate-800 focus:outline-none">
-                        <option value="ALL">Todos</option>
+    <main class="p-6 max-w-7xl mx-auto">
+        
+        <!-- PESTAÑA 1 -->
+        <section id="tab1" class="tab-content active">
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                 <div class="w-full md:w-1/4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Filtrar por Camaronera</label>
+                    <select id="filterCamaronera" onchange="renderDashboard()" class="border border-slate-300 rounded px-3 py-2 text-sm w-full">
+                        <option value="ALL">Todas</option>
                     </select>
                 </div>
-
-                <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                    <span class="text-slate-500 font-medium">Camaronera Oficial:</span>
-                    <select id="filterCamaronera" class="bg-transparent font-semibold text-slate-800 focus:outline-none">
-                        <option value="ALL">Todas (Reclasificadas)</option>
-                    </select>
-                </div>
-
-                <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                    <span class="text-slate-500 font-medium">Clase Asignada:</span>
-                    <select id="filterClase" class="bg-transparent font-semibold text-slate-800 focus:outline-none">
-                        <option value="ALL">Todas (A, B, C, D)</option>
+                <div class="w-full md:w-1/4">
+                     <label class="block text-sm font-medium text-slate-700 mb-1">Filtrar por Categoría (Clase)</label>
+                    <select id="filterClase" onchange="renderDashboard()" class="border border-slate-300 rounded px-3 py-2 text-sm w-full">
+                        <option value="ALL">Todas</option>
                         <option value="A">Clase A</option>
                         <option value="B">Clase B</option>
                         <option value="C">Clase C</option>
                         <option value="D">Clase D</option>
                     </select>
                 </div>
-
-                <button id="btnResetFilters" class="text-slate-600 hover:text-slate-900 font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition">
-                    <i class="fa-solid fa-rotate-left mr-1"></i>Restablecer
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Dashboard Content -->
-    <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-        <!-- Executive KPI Strip (Always Visible) -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- KPI 1: Volumen Total -->
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Libras Totales Recibidas</span>
-                    <span class="w-7 h-7 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                    </span>
-                </div>
-                <div class="mt-2">
-                    <div id="kpiTotalLibras" class="text-2xl font-bold text-slate-900 tracking-tight">0 lb</div>
-                    <div class="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span id="kpiTotalLotes">0 Lotes únicos</span>
-                        <span id="kpiTotalMuestras" class="font-medium text-slate-600">0 Muestras lab.</span>
-                    </div>
-                </div>
             </div>
 
-            <!-- KPI 2: Rendimiento Clase A -->
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">% Libras en Clase A</span>
-                    <span class="w-7 h-7 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-bold">A</span>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-500 font-bold uppercase">Rendimiento Industrial</p>
+                    <h3 class="text-2xl font-black text-slate-800 mt-1" id="kpi-rendimiento">0%</h3>
+                    <p class="text-xs text-slate-400 mt-1" id="kpi-rendimiento-sub">Proc / Recibido</p>
                 </div>
-                <div class="mt-2">
-                    <div id="kpiPctClaseA" class="text-2xl font-bold text-emerald-700 tracking-tight">0.0%</div>
-                    <div class="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span id="kpiLibrasClaseA">0 lb en Primera Línea</span>
-                        <span id="kpiLotesClaseA" class="font-medium text-emerald-700">0 Lotes</span>
-                    </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-500 font-bold uppercase">Downgrade a Cola (% Rechazo)</p>
+                    <h3 class="text-2xl font-black text-rose-600 mt-1" id="kpi-rechazo">0%</h3>
+                    <p class="text-xs text-slate-400 mt-1" id="kpi-rechazo-sub">0 lbs desviadas</p>
                 </div>
-            </div>
-
-            <!-- KPI 3: Volumen Degradado (No-A) -->
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Libras Degradadas (B / C / D)</span>
-                    <span class="w-7 h-7 rounded-md bg-rose-50 text-rose-700 flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-arrow-trend-down"></i>
-                    </span>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-500 font-bold uppercase">Recuperación Premium (Clase A)</p>
+                    <h3 class="text-2xl font-black text-emerald-600 mt-1" id="kpi-premium">0%</h3>
+                    <p class="text-xs text-slate-400 mt-1" id="kpi-premium-sub">0 lbs Entero Clase A</p>
                 </div>
-                <div class="mt-2">
-                    <div id="kpiLibrasDegradadas" class="text-2xl font-bold text-rose-700 tracking-tight">0 lb</div>
-                    <div class="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span id="kpiPctDegradadas">0.0% del volumen total</span>
-                        <span id="kpiCausaPrincipal" class="font-medium text-rose-700 truncate max-w-[130px]">-</span>
-                    </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-500 font-bold uppercase">Libras Procesadas Totales</p>
+                    <h3 class="text-2xl font-black text-slate-800 mt-1" id="kpi-procesadas">0</h3>
+                    <p class="text-xs text-slate-400 mt-1" id="kpi-valor">Valor Liq: $0</p>
                 </div>
             </div>
-
-            <!-- KPI 4: % Promedio Ponderado Fresco y Sano -->
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">% Prom. Fresco y Sano</span>
-                    <span class="w-7 h-7 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-shield-halved"></i>
-                    </span>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <h4 class="text-sm font-bold text-slate-700 mb-4">Flujo de Pérdida de Valor (Base Porcentual 100%)</h4>
+                    <div class="relative h-64"><canvas id="chartWaterfall"></canvas></div>
                 </div>
-                <div class="mt-2">
-                    <div id="kpiFrescoSano" class="text-2xl font-bold text-slate-900 tracking-tight">0.0%</div>
-                    <div class="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span>Ponderado por Libras</span>
-                        <span id="kpiFrescoStatus" class="font-medium text-slate-700">Meta Clase A: &ge;60%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- KPI 5: Desviación de Gramaje en Compra -->
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Desviación Gramaje (&Delta;g)</span>
-                    <span class="w-7 h-7 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center text-xs">
-                        <i class="fa-solid fa-scale-unbalanced"></i>
-                    </span>
-                </div>
-                <div class="mt-2">
-                    <div id="kpiDeltaGramaje" class="text-2xl font-bold text-slate-900 tracking-tight">0.00 g</div>
-                    <div class="flex items-center justify-between mt-1 text-xs text-slate-500">
-                        <span id="kpiGramajeReal">Real: 0.0g</span>
-                        <span id="kpiGramajeDecl" class="font-medium text-slate-600">Decl: 0.0g</span>
-                    </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center">
+                     <h4 class="text-sm font-bold text-slate-700 mb-4 w-full text-left">Distribución de Clases (Entero)</h4>
+                    <div class="relative h-64 w-full max-w-sm"><canvas id="chartPie"></canvas></div>
                 </div>
             </div>
         </section>
 
-        <!-- =================================================================== -->
-        <!-- TAB 1: ANÁLISIS DE DEGRADACIÓN Y DEFECTOS LIMITANTES                -->
-        <!-- =================================================================== -->
-        <div id="tabContentDegradacion" class="space-y-6">
-
-            <!-- Row 1: Causa Raíz de Pérdida de Clase A + Matriz Técnica Organoléptica -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Chart: Desglose de Libras por Factor Limitante -->
-                <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-                        <div>
-                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Pérdida de Clase A por Factor Limitante (Ponderado en Libras)</h2>
-                            <p class="text-xs text-slate-500">Identificación del parámetro exacto que degradó los lotes a Clase B, C o D según matriz de calidad</p>
-                        </div>
-                        <span class="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md shrink-0">Impacto Financiero en Volumen</span>
-                    </div>
-                    <div class="relative flex-1 min-h-[310px] pt-4">
-                        <canvas id="chartLimitantes"></canvas>
-                    </div>
+        <!-- PESTAÑA 2 -->
+        <section id="tab2" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
+                <div class="p-4 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800">MATRIZ DE CLASIFICACIÓN ORGANOLÉPTICA</h2>
+                    <p class="text-xs text-slate-500">Umbrales técnicos vs Clase Real (OMIPROD0016)</p>
                 </div>
-
-                <!-- Interactive Technical Matrix Card -->
-                <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                            <div>
-                                <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Matriz de Clasificación Organoléptica</h2>
-                                <p class="text-xs text-slate-500">Umbrales técnicos de evaluación y lotes afectados en el filtro actual</p>
-                            </div>
-                            <span class="text-[11px] font-medium text-slate-500">Regla de Defecto Limitante</span>
-                        </div>
-
-                        <div class="mt-3 overflow-x-auto">
-                            <table class="w-full text-[11px] border-collapse">
-                                <thead>
-                                    <tr class="bg-slate-800 text-white text-left">
-                                        <th class="p-2 rounded-tl-md">Condición</th>
-                                        <th class="p-2">% Fresco y Sano</th>
-                                        <th class="p-2">Sabores (TML/TL/TF)</th>
-                                        <th class="p-2">Manchas L. / F.</th>
-                                        <th class="p-2">Bact. Leve</th>
-                                        <th class="p-2 rounded-tr-md text-right">Volumen Actual</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-200">
-                                    <tr class="bg-emerald-50/50">
-                                        <td class="p-2 font-bold text-emerald-800">CLASE A</td>
-                                        <td class="p-2 font-medium">60 - 100%</td>
-                                        <td class="p-2">Normal / TML &le; 20%</td>
-                                        <td class="p-2">ML &le; 3% | MF &lt; 5%</td>
-                                        <td class="p-2">&lt; 13%</td>
-                                        <td id="matrixVolA" class="p-2 text-right font-bold text-emerald-700">0 lb (0%)</td>
-                                    </tr>
-                                    <tr class="bg-amber-50/50">
-                                        <td class="p-2 font-bold text-amber-800">CLASE B</td>
-                                        <td class="p-2 font-medium">46 - 59%</td>
-                                        <td class="p-2">TL &lt; 47% | TML &lt; 27% | TF &lt; 13%</td>
-                                        <td class="p-2">ML 4-8% | MF 5%</td>
-                                        <td class="p-2">14 - 20%</td>
-                                        <td id="matrixVolB" class="p-2 text-right font-bold text-amber-700">0 lb (0%)</td>
-                                    </tr>
-                                    <tr class="bg-rose-50/50">
-                                        <td class="p-2 font-bold text-rose-800">CLASE C</td>
-                                        <td class="p-2 font-medium">&le; 45%</td>
-                                        <td class="p-2">Excede límites B</td>
-                                        <td class="p-2">ML &ge; 9% | MF &gt; 5%</td>
-                                        <td class="p-2">&gt; 20%</td>
-                                        <td id="matrixVolC" class="p-2 text-right font-bold text-rose-700">0 lb (0%)</td>
-                                    </tr>
-                                    <tr class="bg-slate-100">
-                                        <td class="p-2 font-bold text-slate-900">CLASE D</td>
-                                        <td colspan="4" class="p-2 font-semibold text-rose-700 text-center">Presencia de Sabor Combustible / Diesel (&gt; 0%)</td>
-                                        <td id="matrixVolD" class="p-2 text-right font-bold text-slate-900">0 lb (0%)</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Summary of Trigger Incidences -->
-                    <div class="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                            <span class="block text-[10px] text-slate-500 uppercase font-semibold">Incidencia % Fresco &lt;60%</span>
-                            <span id="trigFresco" class="text-sm font-bold text-slate-800">0 lotes</span>
-                        </div>
-                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                            <span class="block text-[10px] text-slate-500 uppercase font-semibold">Incidencia Off-Flavor</span>
-                            <span id="trigSabor" class="text-sm font-bold text-slate-800">0 lotes</span>
-                        </div>
-                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                            <span class="block text-[10px] text-slate-500 uppercase font-semibold">Manchas Fuera Rango</span>
-                            <span id="trigManchas" class="text-sm font-bold text-slate-800">0 lotes</span>
-                        </div>
-                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                            <span class="block text-[10px] text-slate-500 uppercase font-semibold">Ataque Bact. &ge;13%</span>
-                            <span id="trigBacteria" class="text-sm font-bold text-slate-800">0 lotes</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 2: Control de Metabisulfito vs Defectos Cromáticos + Heatmap por Camaronera y Piscina -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Combo Chart: Metabisulfito vs Melanosis/Manchas/Cabeza Naranja -->
-                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col">
-                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                        <div>
-                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Control de Metabisulfito vs. Defectos de Color y Textura</h2>
-                            <p class="text-xs text-slate-500">Promedio ponderado por Camaronera Oficial: Residual de Metabisulfito vs. (% Manchas + % Melanosis + % Cabeza Naranja)</p>
-                        </div>
-                    </div>
-                    <div class="relative flex-1 min-h-[300px] pt-4">
-                        <canvas id="chartMetabisulfito"></canvas>
-                    </div>
-                </div>
-
-                <!-- Heatmap: Camaronera Oficial y Piscina -->
-                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                        <div>
-                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Mapa de Calor por Camaronera Oficial y Piscina</h2>
-                            <p class="text-xs text-slate-500">Promedios ponderados por volumen para detección focalizada de piscinas críticas</p>
-                        </div>
-                        <span class="text-[11px] bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded">Top Piscinas por Volumen</span>
-                    </div>
-                    <div class="overflow-x-auto custom-scrollbar max-h-[320px] mt-3">
-                        <table class="w-full text-xs border-collapse">
-                            <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200">
-                                <tr>
-                                    <th class="p-2 text-left font-semibold">Camaronera Oficial</th>
-                                    <th class="p-2 text-left font-semibold">Piscina</th>
-                                    <th class="p-2 text-right font-semibold">Libras</th>
-                                    <th class="p-2 text-center font-semibold">% Fresco y Sano</th>
-                                    <th class="p-2 text-center font-semibold">Tierra Máx %</th>
-                                    <th class="p-2 text-center font-semibold">Mancha L/F %</th>
-                                    <th class="p-2 text-center font-semibold">Bact. Leve %</th>
-                                    <th class="p-2 text-center font-semibold">% Clase A</th>
-                                </tr>
-                            </thead>
-                            <tbody id="heatmapTableBody" class="divide-y divide-slate-100">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 3: Master Lot Audit Table -->
-            <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-                <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Auditoría Consolidada de Lotes y Diagnóstico de Degradación</h2>
-                        <p class="text-xs text-slate-500">Cruce unificado 1 a 1 por Lote entre <code class="font-mono text-slate-700">Sabor_Desglosado_Validado</code> y las muestras ponderadas de <code class="font-mono text-slate-700">Metabisulfito_Validado</code></p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="relative w-full sm:w-64">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                            <input type="text" id="searchLoteInput" placeholder="Buscar Lote, Piscina o Camaronera..." class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-slate-900">
-                        </div>
-                    </div>
-                </div>
-                <div class="overflow-x-auto custom-scrollbar max-h-[460px]">
-                    <table class="w-full text-xs text-left border-collapse">
-                        <thead class="bg-slate-50 text-slate-600 uppercase text-[11px] sticky top-0 border-b border-slate-200 z-10">
-                            <tr>
-                                <th class="py-3 px-3 font-semibold">Lote</th>
-                                <th class="py-3 px-3 font-semibold">Camaronera Oficial</th>
-                                <th class="py-3 px-3 font-semibold">Piscina (Orig.)</th>
-                                <th class="py-3 px-3 font-semibold text-right">Libras Lote</th>
-                                <th class="py-3 px-3 font-semibold text-center">Muestras Lab.</th>
-                                <th class="py-3 px-3 font-semibold text-center">% Fresco y Sano</th>
-                                <th class="py-3 px-3 font-semibold text-center">Sabor Caract. / Tierra</th>
-                                <th class="py-3 px-3 font-semibold text-center">Manchas L / F</th>
-                                <th class="py-3 px-3 font-semibold text-center">Bact. Leve</th>
-                                <th class="py-3 px-3 font-semibold text-center">Metabisulfito (&Delta;)</th>
-                                <th class="py-3 px-3 font-semibold text-center">Clase</th>
-                                <th class="py-3 px-3 font-semibold">Factor Limitante / Causa Raíz</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditTableBody" class="divide-y divide-slate-100 text-slate-700">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- =================================================================== -->
-        <!-- TAB 2: RANKING Y RENDIMIENTO DE PROVEEDORES Y CAMARONERAS OFICIALES -->
-        <!-- =================================================================== -->
-        <div id="tabContentProveedores" class="hidden space-y-6">
-
-            <!-- Row 1: Scatter/Bubble Chart + 100% Stacked Class Distribution -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Scatter Bubble Plot -->
-                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col">
-                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                        <div>
-                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Matriz de Desempeño: % Fresco y Sano vs. % Sabor Característico</h2>
-                            <p class="text-xs text-slate-500">Tamaño de burbuja proporcional al volumen de Libras Recibidas por Camaronera Oficial</p>
-                        </div>
-                    </div>
-                    <div class="relative flex-1 min-h-[340px] pt-4">
-                        <canvas id="chartBubbleProveedores"></canvas>
-                    </div>
-                </div>
-
-                <!-- 100% Stacked Bar Chart: Class A, B, C, D distribution -->
-                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col">
-                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                        <div>
-                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Distribución Porcentual de Categorías (Clase A, B, C, D)</h2>
-                            <p class="text-xs text-slate-500">Proporción de lotes entregados por cada Camaronera Oficial según su clasificación</p>
-                        </div>
-                    </div>
-                    <div class="relative flex-1 min-h-[340px] pt-4">
-                        <canvas id="chartStackedClases"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 2: Ranking Table sorted by % Prom. Fresco y Sano -->
-            <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-                <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Ranking Oficial de Camaroneras y Proveedores (Ordenado por % Prom. Fresco y Sano)</h2>
-                        <p class="text-xs text-slate-500">Evaluación integral de rendimiento físico, organoléptico, exactitud de gramaje y distribución porcentual en Clases A, B, C y D</p>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="text-slate-500 font-medium">Agrupar Ranking por:</span>
-                        <select id="rankingGroupBy" class="bg-slate-50 border border-slate-300 font-semibold text-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none">
-                            <option value="camaronera">Camaronera Oficial (Reclasificada)</option>
-                            <option value="proveedor">Proveedor Comercial</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs text-left border-collapse">
-                        <thead class="bg-slate-800 text-white uppercase text-[11px]">
+                    <table class="w-full gerencial-table">
+                        <thead>
                             <tr>
-                                <th class="py-3 px-4 font-semibold text-center w-14">Pos.</th>
-                                <th class="py-3 px-4 font-semibold">Camaronera Oficial / Proveedor</th>
-                                <th class="py-3 px-3 font-semibold text-right">Lotes</th>
-                                <th class="py-3 px-3 font-semibold text-right">Libras Totales</th>
-                                <th class="py-3 px-3 font-semibold text-center bg-slate-700">% Prom. Fresco y Sano</th>
-                                <th class="py-3 px-3 font-semibold text-center">% Sabor Característico</th>
-                                <th class="py-3 px-3 font-semibold text-center">Desv. Gramaje (&Delta;g)</th>
-                                <th class="py-3 px-3 font-semibold text-center text-emerald-300">% Lotes Clase A</th>
-                                <th class="py-3 px-3 font-semibold text-center text-amber-300">% Lotes Clase B</th>
-                                <th class="py-3 px-3 font-semibold text-center text-rose-300">% Lotes Clase C</th>
-                                <th class="py-3 px-3 font-semibold text-center text-slate-300">% Lotes Clase D</th>
-                                <th class="py-3 px-4 font-semibold w-44">Composición de Lotes</th>
+                                <th>Condición (Real)</th>
+                                <th>% Fresco y Sano</th>
+                                <th>Sabores (TML/TL/TF)</th>
+                                <th>Manchas L. / F.</th>
+                                <th>Bact. Leve</th>
+                                <th>Volumen Actual Procesado</th>
                             </tr>
                         </thead>
-                        <tbody id="rankingTableBody" class="divide-y divide-slate-200 text-slate-700">
-                            <!-- Populated dynamically -->
+                        <tbody id="tbody-matriz">
+                            <!-- Generado por JS -->
                         </tbody>
                     </table>
                 </div>
             </div>
+            
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">MAPA DE CALOR POR LOTE, CAMARONERA Y PISCINA</h2>
+                        <p class="text-xs text-slate-500">Desglose individual de defectos y sabores limitantes por lote recibido</p>
+                    </div>
+                    <input type="text" id="searchCalor" onkeyup="filterCalorTable()" placeholder="Buscar Lote o Proveedor..." class="border border-slate-300 rounded px-3 py-2 text-sm w-full md:w-1/3">
+                </div>
+                <div class="overflow-x-auto h-[500px]">
+                    <table class="w-full gerencial-table relative whitespace-nowrap" id="table-calor">
+                        <thead class="sticky top-0 shadow-sm z-10">
+                            <tr>
+                                <th>Lote</th>
+                                <th>Camaronera Oficial</th>
+                                <th>Piscina</th>
+                                <th>Libras Proc.</th>
+                                <th>% Fresco y Sano</th>
+                                <th>Metabisulfito</th>
+                                <th class="bg-slate-700 text-white">Sabor Caract. %</th>
+                                <th class="bg-slate-700 text-white">Tierra TML %</th>
+                                <th class="bg-slate-700 text-white">Tierra TL %</th>
+                                <th class="bg-slate-700 text-white">Tierra TF %</th>
+                                <th class="bg-slate-700 text-white">Otros Sabores %</th>
+                                <th>Mancha L/F %</th>
+                                <th>Bact. Leve %</th>
+                                <th>% Clase A</th>
+                                <th>% Talla</th>
+                                <th>% Clase C</th>
+                                <th>% Clase D</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-calor">
+                            <!-- Generado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-        </div>
-
+        <!-- PESTAÑA 3 -->
+        <section id="tab3" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 uppercase">Ranking Oficial de Camaroneras y Proveedores</h2>
+                    <p class="text-xs text-slate-500">Ordenado por % Promedio Fresco y Sano</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full gerencial-table">
+                        <thead>
+                            <tr>
+                                <th>Pos.</th>
+                                <th>Camaronera Oficial</th>
+                                <th>Lotes</th>
+                                <th>Libras Proc.</th>
+                                <th>% Prom. Fresco</th>
+                                <th>% Clase A</th>
+                                <th>% Talla</th>
+                                <th>% Clase C</th>
+                                <th>% Clase D</th>
+                                <th>% Rechazo (Cola)</th>
+                                <th>Composición</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ranking">
+                            <!-- Generado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- Corporate Footer -->
-    <footer class="bg-white border-t border-slate-200 mt-auto py-4 px-4 sm:px-6 text-xs text-slate-500">
-        <div class="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div>
-                <span class="font-semibold text-slate-700">Dashboard Analítico de Recepción y Calidad</span> &bull; Fuentes vinculadas: <code class="font-mono">Sabor_Desglosado_Validado.csv</code> y <code class="font-mono">Metabisulfito_Validado.csv</code>
-            </div>
-            <div>
-                Reclasificación automática activa: <span class="font-medium text-slate-700">PU &rarr; Puerto Inca N | PD &rarr; Puna 2 | PT &rarr; Taura</span>
-            </div>
-        </div>
-    </footer>
-
-    <!-- =================================================================== -->
-    <!-- CORE APPLICATION LOGIC & DATA ENGINE                                -->
-    <!-- =================================================================== -->
     <script>
-        // -------------------------------------------------------------------
-        // 1. BUILT-IN REALISTIC FALLBACK DATA (Used if CSV fetch fails locally)
-        // -------------------------------------------------------------------
-        const FALLBACK_SABOR_CSV = `Fecha registro del lote\tFecha de llegada\tLote\tProveedor\tCamaronera\tPiscina\tTipo de materia prima\tLibras recibidas\tColor cocido\tColor crudo\tOlor\tCertificación\tTratador\tClase a empacar\tOrden de compra\tOrden de calidad\tSabor caracteristico %\tSabor caracteristico cola %\tSabor choclo cola fuerte %\tSabor choclo cola leve %\tSabor choclo cola muy leve %\tSabor choclo entero fuerte %\tSabor choclo entero leve %\tSabor choclo entero muy leve %\tSabor combustible cola fuerte %\tSabor combustible cola leve %\tSabor combustible cola muy leve %\tSabor combustible entero fuerte %\tSabor combustible entero leve %\tSabor combustible entero muy leve %\tSabor gallinaza cola fuerte %\tSabor gallinaza cola leve %\tSabor gallinaza cola muy leve %\tSabor gallinaza entero fuerte %\tSabor gallinaza entero leve %\tSabor gallinaza entero muy leve %\tSabor mangle cola fuerte %\tSabor mangle cola leve %\tSabor mangle cola muy leve %\tSabor mangle entero fuerte %\tSabor mangle entero leve %\tSabor mangle entero muy leve %\tSabor otros cola fuerte %\tSabor otros cola leve %\tSabor otros cola muy leve %\tSabor otros entero fuerte %\tSabor otros entero leve %\tSabor otros entero muy leve %\tSabor tierra cola fuerte %\tSabor tierra cola leve %\tSabor tierra cola muy leve %\tSabor tierra entero fuerte %\tSabor tierra entero leve %\tSabor tierra entero muy leve %
-2026-08-01 01:55:00\t2026-08-01 00:43:46\t1447843\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPU3010A\tMATERIA PRIMA GENERICO ENTERO\t55623.02\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204273\tOMA-182056\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-01 02:00:00\t2026-08-01 03:35:47\t1447950\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Cachugran\t88\tMATERIA PRIMA GENERICO ENTERO\t43470.64\t23NARANJA OSCURO\tA4OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204391\tOMA-182091\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-01 02:10:00\t2026-07-31 23:20:52\t1447858\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPU4120A\tMATERIA PRIMA GENERICO ENTERO\t10497.70\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tC-TERCERO\tOC-000204289\tOMA-182019\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-01 03:30:00\t2026-08-01 00:42:42\t1447844\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPT1016A\tMATERIA PRIMA GENERICO ENTERO\t12018.22\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tB-SEGUNDA\tOC-000204274\tOMA-182101\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-01 04:45:00\t2026-08-01 04:10:22\t1447861\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPU4034A\tMATERIA PRIMA GENERICO ENTERO\t16933.37\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tB-SEGUNDA\tOC-000204293\tOMA-182121\t60\t60\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t13.33\t26.67\t0\t13.33\t26.67
-2026-08-01 05:20:00\t2026-08-01 22:53:20\t1448109\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Chongon\t325\tMATERIA PRIMA GENERICO ENTERO\t28450.00\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204629\tOMA-182289\t90\t90\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t10\t0\t0\t10
-2026-08-02 01:15:00\t2026-08-02 00:10:00\t1448210\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPD312A\tMATERIA PRIMA GENERICO ENTERO\t34120.50\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204710\tOMA-182301\t85\t85\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t15\t0\t0\t15
-2026-08-02 03:40:00\t2026-08-02 02:15:00\t1448255\tOPERADORA Y PROCESADORA DE PRODUCTOS MARINOS OMARSA S.A.\tCamaronera Puna\tPD108B\tMATERIA PRIMA GENERICO ENTERO\t22890.00\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tB-SEGUNDA\tOC-000204755\tOMA-182340\t75\t75\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t25\t0\t0\t25\t0
-2026-08-02 06:10:00\t2026-08-02 05:00:00\t1448301\tACUACULTURA DEL GUAYAS S.A.\tCamaronera Puna\tPU1042A\tMATERIA PRIMA GENERICO ENTERO\t41200.00\t22NARANJA OSCURO\tA2CLARO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204801\tOMA-182400\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-02 08:25:00\t2026-08-02 07:30:00\t1448340\tACUACULTURA DEL GUAYAS S.A.\tCamaronera Puna\tPU2019B\tMATERIA PRIMA GENERICO ENTERO\t31500.00\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000204840\tOMA-182425\t95\t95\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t5\t0\t0\t5
-2026-08-03 01:10:00\t2026-08-03 00:05:00\t1448412\tLANGOSTINOS DEL PACIFICO S.A.\tCamaronera Puna\tPT2040A\tMATERIA PRIMA GENERICO ENTERO\t19800.00\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tB-SEGUNDA\tOC-000204912\tOMA-182510\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-03 04:00:00\t2026-08-03 03:10:00\t1448490\tLANGOSTINOS DEL PACIFICO S.A.\tCamaronera Sabana\t848\tMATERIA PRIMA GENERICO ENTERO\t15200.00\t23NARANJA OSCURO\tA4OSCURO\tCARACTERISTICO OL\tNO CERTIFICADO\tNN - TRATADOR NO ASIGNADO\tC-TERCERO\tOC-000204990\tOMA-182590\t40\t40\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t20\t40\t0\t20\t40\t0
-2026-08-03 06:30:00\t2026-08-03 05:20:00\t1448530\tMARISCOS DEL GOLFO MARGOLFO S.A.\tCamaronera Puna\tPU4029A\tMATERIA PRIMA GENERICO ENTERO\t38900.00\t22NARANJA OSCURO\tA3SEMI OSCURO\tCARACTERISTICO OL\tCERTIFICADO\tNN - TRATADOR NO ASIGNADO\tA-PRIMERA\tOC-000205030\tOMA-182630\t100\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0
-2026-08-03 09:15:00\t2026-08-03 08:00:00\t1448599\tMARISCOS DEL GOLFO MARGOLFO S.A.\tCamaronera Sabana\t412\tMATERIA PRIMA GENERICO ENTERO\t9400.00\t23NARANJA OSCURO\tA4OSCURO\tCOMBUSTIBLE OL\tNO CERTIFICADO\tNN - TRATADOR NO ASIGNADO\tD-RECHAZO\tOC-000205099\tOMA-182699\t80\t80\t0\t0\t0\t0\t0\t0\t0\t20\t0\t0\t20\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0`;
+        function openTab(evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+            if(tabName === 'tab1') renderDashboard(); 
+        }
 
-        const FALLBACK_META_CSV = `Fecha registro del lote\tFecha de llegada\tLote\tCamaronera\tPiscina\tGramaje entero\tGramaje cola\tLibras recibidas\tTratador\tTipo de materia prima\tNumero muestra de calidad\tPorcentaje de metabisulfito\tE. cabeza descolgada\tE. cabeza descolgada (%)\tE. cabeza floja\tE. cabeza floja (%)\tE. corbata grande\tE. corbata grande (%)\tE. corbata sucia\tE. corbata sucia (%)\tE. deforme\tE. deforme (%)\tE. deshidratado\tE. deshidratado (%)\tE. deshidratado fuerte\tE. deshidratado fuerte (%)\tE. flacido\tE. flacido (%)\tE. fresco y sano\tE. fresco y sano (%)\tE. hepato páncreas reventado\tE. hepato páncreas reventado (%)\tE. hongo/bacteria leve\tE. hongo/bacteria leve (%)\tE. lodo en branquias\tE. lodo en branquias (%)\tE. maltratado\tE. maltratado (%)\tE. mancha fuerte\tE. mancha fuerte (%)\tE. mancha leve\tE. mancha leve (%)\tE. melanosis\tE. melanosis (%)\tE. mudado\tE. mudado (%)\tE. otros\tE. otros (%)\tE. quebrado\tE. quebrado (%)\tE. rosado/rojo\tE. rosado/rojo (%)\tE. semirosado\tE. semirosado (%)\tE. cabeza naranja\tE. cabeza naranja (%)\tOrden de compra\tGramaje declarado en pesca\tOrden de calidad
-2026-08-01 01:55:00\t2026-08-01 00:45:02\t1447843\tCamaronera Puna\tPU3010A\t21.24\t14.02\t18000\tNN\tMATERIA PRIMA\t1\t35.28\t0\t0\t8\t7.62\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t23\t18.5\t69\t68.71\t1\t0.95\t0\t2.1\t0\t0\t0\t0\t2\t1.9\t1\t1.2\t0\t0\t2\t1.9\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204273\t20.5\tOMA-182057
-2026-08-01 02:33:00\t2026-08-01 00:44:39\t1447843\tCamaronera Puna\tPU3010A\t21.52\t14.20\t19000\tNN\tMATERIA PRIMA\t2\t44.71\t0\t0\t10\t8.52\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t20\t17.05\t68\t66.76\t1\t0.95\t0\t1.8\t0\t0\t0\t0\t3\t2.1\t1\t1.5\t0\t0\t3\t2.86\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204273\t20.5\tOMA-182115
-2026-08-01 03:10:00\t2026-08-01 01:15:00\t1447843\tCamaronera Puna\tPU3010A\t21.40\t14.10\t18623.02\tNN\tMATERIA PRIMA\t3\t41.10\t0\t0\t7\t6.50\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t18\t15.0\t72\t70.10\t1\t0.80\t0\t1.5\t0\t0\t0\t0\t2\t1.8\t1\t1.1\t0\t0\t2\t1.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204273\t20.5\tOMA-182120
-2026-08-01 02:10:00\t2026-08-01 03:46:50\t1447950\tCamaronera Cachugran\t88\t23.88\t15.76\t14470.64\tNN\tMATERIA PRIMA\t1\t64.26\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t16\t13.33\t89\t74.17\t1\t0.83\t8\t6.67\t0\t0\t0\t0\t0\t1.2\t4\t2.33\t0\t0\t2\t1.67\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204391\t23.0\tOMA-182076
-2026-08-01 03:30:00\t2026-08-01 03:36:48\t1447950\tCamaronera Cachugran\t88\t23.02\t15.19\t14500\tNN\tMATERIA PRIMA\t2\t57.22\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t10\t12.5\t52\t65.0\t1\t1.25\t8\t8.0\t0\t0\t0\t0\t3\t2.75\t4\t2.5\t0\t0\t2\t2.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204391\t23.0\tOMA-182154
-2026-08-01 03:45:00\t2026-08-01 03:37:48\t1447950\tCamaronera Cachugran\t88\t23.03\t15.20\t14500\tNN\tMATERIA PRIMA\t3\t66.91\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t12\t14.0\t35\t62.33\t1\t1.67\t7\t7.67\t0\t0\t0\t0\t2\t2.33\t3\t2.2\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204391\t23.0\tOMA-182181
-2026-08-01 02:15:00\t2026-07-31 23:30:00\t1447858\tCamaronera Puna\tPU4120A\t18.10\t11.90\t10497.70\tNN\tMATERIA PRIMA\t1\t28.40\t0\t0\t18\t15.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t28\t24.0\t42\t42.50\t4\t3.5\t12\t11.0\t0\t0\t0\t0\t6\t5.8\t10\t9.5\t4\t3.8\t2\t2.0\t0\t0\t0\t0\t0\t0\t0\t0\t3\t2.9\tOC-000204289\t19.0\tOMA-182019
-2026-08-01 03:30:00\t2026-08-01 00:42:42\t1447844\tCamaronera Puna\tPT1016A\t14.91\t9.84\t12018.22\tNN\tMATERIA PRIMA\t1\t40.14\t0\t0\t24\t16.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t30\t20.0\t77\t53.33\t0\t0\t0\t4.2\t0\t0\t0\t0\t10\t4.67\t5\t5.33\t2\t1.8\t0\t0\t0\t0\t0\t0\t4\t2.67\t0\t0\t2\t1.5\tOC-000204274\t16.0\tOMA-182092
-2026-08-01 04:50:00\t2026-08-01 04:15:00\t1447861\tCamaronera Puna\tPU4034A\t19.80\t13.10\t8500.00\tNN\tMATERIA PRIMA\t1\t48.20\t0\t0\t6\t5.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t14\t12.0\t65\t64.50\t1\t1.0\t4\t4.0\t0\t0\t0\t0\t2\t2.0\t2\t2.1\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204293\t20.0\tOMA-182121
-2026-08-01 05:10:00\t2026-08-01 04:35:00\t1447861\tCamaronera Puna\tPU4034A\t19.60\t12.95\t8433.37\tNN\tMATERIA PRIMA\t2\t51.10\t0\t0\t5\t4.8\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t12\t11.5\t66\t65.20\t1\t0.9\t4\t3.8\t0\t0\t0\t0\t2\t1.8\t2\t2.0\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204293\t20.0\tOMA-182122
-2026-08-01 02:50:00\t2026-08-01 22:53:20\t1448109\tCamaronera Chongon\t325\t38.72\t25.56\t14225.00\tNN\tMATERIA PRIMA\t1\t49.60\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t8\t13.11\t45\t73.77\t0\t0\t3\t4.92\t0\t0\t0\t0\t2\t3.28\t1\t1.64\t0\t0\t2\t3.28\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204629\t38.0\tOMA-182289
-2026-08-01 03:20:00\t2026-08-01 23:15:00\t1448109\tCamaronera Chongon\t325\t38.50\t25.40\t14225.00\tNN\tMATERIA PRIMA\t2\t52.10\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t7\t11.80\t48\t75.10\t0\t0\t2\t4.10\t0\t0\t0\t0\t1\t2.40\t1\t1.50\t0\t0\t1\t2.10\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204629\t38.0\tOMA-182290
-2026-08-02 01:20:00\t2026-08-02 00:15:00\t1448210\tCamaronera Puna\tPD312A\t24.50\t16.20\t17060.25\tNN\tMATERIA PRIMA\t1\t45.00\t0\t0\t4\t3.8\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t10\t9.5\t74\t71.80\t0\t0\t3\t3.2\t0\t0\t0\t0\t1\t1.5\t2\t1.9\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204710\t24.0\tOMA-182301
-2026-08-02 01:55:00\t2026-08-02 00:45:00\t1448210\tCamaronera Puna\tPD312A\t24.30\t16.05\t17060.25\tNN\tMATERIA PRIMA\t2\t47.80\t0\t0\t4\t4.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t9\t8.8\t76\t73.10\t0\t0\t3\t3.0\t0\t0\t0\t0\t1\t1.4\t2\t1.8\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204710\t24.0\tOMA-182302
-2026-08-02 03:45:00\t2026-08-02 02:20:00\t1448255\tCamaronera Puna\tPD108B\t22.10\t14.60\t22890.00\tNN\tMATERIA PRIMA\t1\t39.50\t0\t0\t8\t7.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t15\t14.0\t63\t63.40\t1\t1.0\t6\t5.8\t0\t0\t0\t0\t2\t2.2\t2\t2.4\t1\t0.9\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t1\t0.8\tOC-000204755\t22.5\tOMA-182340
-2026-08-02 06:15:00\t2026-08-02 05:05:00\t1448301\tCamaronera Puna\tPU1042A\t26.80\t17.70\t20600.00\tNN\tMATERIA PRIMA\t1\t51.20\t0\t0\t2\t1.8\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t6\t5.5\t84\t81.20\t0\t0\t2\t2.1\t0\t0\t0\t0\t1\t0.9\t1\t1.1\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204801\t26.0\tOMA-182400
-2026-08-02 06:45:00\t2026-08-02 05:35:00\t1448301\tCamaronera Puna\tPU1042A\t26.90\t17.80\t20600.00\tNN\tMATERIA PRIMA\t2\t53.40\t0\t0\t2\t2.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t5\t4.8\t85\t82.60\t0\t0\t2\t1.9\t0\t0\t0\t0\t1\t0.8\t1\t1.0\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204801\t26.0\tOMA-182401
-2026-08-02 08:30:00\t2026-08-02 07:35:00\t1448340\tCamaronera Puna\tPU2019B\t25.10\t16.60\t31500.00\tNN\tMATERIA PRIMA\t1\t49.80\t0\t0\t3\t2.9\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t8\t7.4\t79\t77.50\t0\t0\t3\t2.8\t0\t0\t0\t0\t1\t1.2\t2\t1.7\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000204840\t25.0\tOMA-182425
-2026-08-03 01:15:00\t2026-08-03 00:10:00\t1448412\tCamaronera Puna\tPT2040A\t17.40\t11.50\t19800.00\tNN\tMATERIA PRIMA\t1\t33.10\t0\t0\t12\t11.2\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t16\t15.0\t64\t61.80\t2\t1.8\t16\t15.8\t0\t0\t0\t0\t3\t2.8\t6\t6.1\t3\t2.5\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t2\t1.9\tOC-000204912\t18.5\tOMA-182510
-2026-08-03 04:05:00\t2026-08-03 03:15:00\t1448490\tCamaronera Sabana\t848\t15.80\t10.40\t15200.00\tNN\tMATERIA PRIMA\t1\t22.50\t0\t0\t20\t19.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t25\t24.2\t40\t41.20\t4\t3.9\t22\t21.5\t0\t0\t0\t0\t7\t6.8\t11\t10.4\t5\t4.9\t2\t2.0\t0\t0\t0\t0\t0\t0\t0\t0\t4\t3.8\tOC-000204990\t17.5\tOMA-182590
-2026-08-03 06:35:00\t2026-08-03 05:25:00\t1448530\tCamaronera Puna\tPU4029A\t23.40\t15.45\t19450.00\tNN\tMATERIA PRIMA\t1\t54.00\t0\t0\t4\t3.5\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t9\t8.5\t75\t73.90\t0\t0\t4\t3.8\t0\t0\t0\t0\t1\t1.4\t2\t1.9\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000205030\t23.0\tOMA-182630
-2026-08-03 07:05:00\t2026-08-03 05:55:00\t1448530\tCamaronera Puna\tPU4029A\t23.60\t15.60\t19450.00\tNN\tMATERIA PRIMA\t2\t56.20\t0\t0\t3\t3.1\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t8\t7.9\t77\t75.20\t0\t0\t3\t3.4\t0\t0\t0\t0\t1\t1.2\t2\t1.8\t0\t0\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000205030\t23.0\tOMA-182631
-2026-08-03 09:20:00\t2026-08-03 08:05:00\t1448599\tCamaronera Sabana\t412\t20.10\t13.20\t9400.00\tNN\tMATERIA PRIMA\t1\t42.00\t0\t0\t6\t5.8\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t12\t11.5\t66\t65.00\t1\t1.0\t5\t4.8\t0\t0\t0\t0\t2\t1.9\t2\t2.1\t1\t0.8\t1\t1.0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\tOC-000205099\t20.5\tOMA-182699`;
-
-        // Global State
-        let rawSaborRows = [];
-        let rawMetaRows = [];
-        let masterLots = [];
-        let filteredLots = [];
+        let db = { liquidaciones: [], sabores: [], metabisulfito: [], consolidado: [] };
         let charts = {};
 
-        // -------------------------------------------------------------------
-        // 2. BUSINESS RULE 1: RECLASIFICACIÓN AUTOMÁTICA DE CAMARONERAS
-        // -------------------------------------------------------------------
-        function reclasificarCamaronera(camaroneraOriginal, codigoPiscina) {
-            const piscina = String(codigoPiscina || '').trim().toUpperCase();
-            const orig = String(camaroneraOriginal || 'No Especificada').trim();
-
-            if (piscina.startsWith('PU')) {
-                const sector = piscina.charAt(2);
-                return sector ? `Puerto Inca ${sector}` : 'Puerto Inca';
-            }
-            if (piscina.startsWith('PD')) {
-                return 'Puna 2';
-            }
-            if (piscina.startsWith('PT')) {
-                return 'Taura';
-            }
-            return orig;
+        function parseNum(val) {
+            if (typeof val === 'number') return val;
+            if (!val || val.toString().trim() === '') return 0;
+            let cleanVal = val.toString().replace(/,/g, '').replace(/"/g, '').trim();
+            return parseFloat(cleanVal) || 0;
         }
 
-        // Helper for numeric parsing (supports comma or dot decimals and strips %)
-        function toNum(val) {
-            if (val === null || val === undefined || val === '') return 0;
-            if (typeof val === 'number') return isNaN(val) ? 0 : val;
-            const cleaned = String(val).replace(/%/g, '').replace(/,/g, '.').trim();
-            const parsed = parseFloat(cleaned);
-            return isNaN(parsed) ? 0 : parsed;
-        }
-
-        // Flexible column lookup (handles slight accent/case variations in CSV headers)
-        function getCol(row, possibleNames) {
-            for (const name of possibleNames) {
-                if (row[name] !== undefined) return row[name];
-            }
-            const keys = Object.keys(row);
-            for (const name of possibleNames) {
-                const lowerTarget = name.toLowerCase();
-                const match = keys.find(k => k.trim().toLowerCase() === lowerTarget);
-                if (match !== undefined) return row[match];
-            }
-            return '';
-        }
-
-        // -------------------------------------------------------------------
-        // 3. DATA CONSOLIDATION, WEIGHTED AVERAGES & ORGANOLEPTIC MATRIX
-        // -------------------------------------------------------------------
-        function buildMasterDataset() {
-            // Step A: Group Metabisulfito_Validado by Lote (1 to 6 samples per lot)
-            const metaByLote = {};
-
-            rawMetaRows.forEach(row => {
-                const lote = String(getCol(row, ['Lote', 'LOTE'])).trim();
-                if (!lote) return;
-
-                const librasMuestra = toNum(getCol(row, ['Libras recibidas', 'Libras Recibidas']));
-                const pesoPonderacion = librasMuestra > 0 ? librasMuestra : 1;
-
-                const frescoSano = toNum(getCol(row, ['E. fresco y sano (%)', 'E. Fresco y Sano (%)']));
-                const metabisulfito = toNum(getCol(row, ['Porcentaje de metabisulfito', 'Porcentaje de Metabisulfito']));
-                const gramajeEntero = toNum(getCol(row, ['Gramaje entero', 'Gramaje Entero']));
-                const gramajeCola = toNum(getCol(row, ['Gramaje cola', 'Gramaje Cola']));
-                const gramajeDeclarado = toNum(getCol(row, ['Gramaje declarado en pesca', 'Gramaje Declarado en Pesca']));
-                const manchaLeve = toNum(getCol(row, ['E. mancha leve (%)']));
-                const manchaFuerte = toNum(getCol(row, ['E. mancha fuerte (%)']));
-                const hongoBacteria = toNum(getCol(row, ['E. hongo/bacteria leve (%)']));
-                const flacido = toNum(getCol(row, ['E. flacido (%)']));
-                const cabezaFloja = toNum(getCol(row, ['E. cabeza floja (%)']));
-                const hepatoReventado = toNum(getCol(row, ['E. hepato páncreas reventado (%)', 'E. hepato pancreas reventado (%)']));
-                const melanosis = toNum(getCol(row, ['E. melanosis (%)']));
-                const cabezaNaranja = toNum(getCol(row, ['E. cabeza naranja (%)']));
-
-                if (!metaByLote[lote]) {
-                    metaByLote[lote] = {
-                        lote,
-                        camaroneraOrig: getCol(row, ['Camaronera']),
-                        piscina: getCol(row, ['Piscina']),
-                        muestrasCount: 0,
-                        sumaLibrasMuestras: 0,
-                        sumaPesoPonderacion: 0,
-                        wFrescoSano: 0,
-                        wMetabisulfito: 0,
-                        wGramajeEntero: 0,
-                        wGramajeCola: 0,
-                        wGramajeDeclarado: 0,
-                        wManchaLeve: 0,
-                        wManchaFuerte: 0,
-                        wHongoBacteria: 0,
-                        wFlacido: 0,
-                        wCabezaFloja: 0,
-                        wHepato: 0,
-                        wMelanosis: 0,
-                        wCabezaNaranja: 0,
-                        metaMin: metabisulfito,
-                        metaMax: metabisulfito
-                    };
-                }
-
-                const g = metaByLote[lote];
-                g.muestrasCount += 1;
-                g.sumaLibrasMuestras += librasMuestra;
-                g.sumaPesoPonderacion += pesoPonderacion;
-
-                g.wFrescoSano += frescoSano * pesoPonderacion;
-                g.wMetabisulfito += metabisulfito * pesoPonderacion;
-                g.wGramajeEntero += gramajeEntero * pesoPonderacion;
-                g.wGramajeCola += gramajeCola * pesoPonderacion;
-                g.wGramajeDeclarado += gramajeDeclarado * pesoPonderacion;
-                g.wManchaLeve += manchaLeve * pesoPonderacion;
-                g.wManchaFuerte += manchaFuerte * pesoPonderacion;
-                g.wHongoBacteria += hongoBacteria * pesoPonderacion;
-                g.wFlacido += flacido * pesoPonderacion;
-                g.wCabezaFloja += cabezaFloja * pesoPonderacion;
-                g.wHepato += hepatoReventado * pesoPonderacion;
-                g.wMelanosis += melanosis * pesoPonderacion;
-                g.wCabezaNaranja += cabezaNaranja * pesoPonderacion;
-
-                if (metabisulfito < g.metaMin) g.metaMin = metabisulfito;
-                if (metabisulfito > g.metaMax) g.metaMax = metabisulfito;
-            });
-
-            // Step B: Merge with Sabor_Desglosado_Validado (1 row per Lote, official weight)
-            const unified = [];
-            const seenLotes = new Set();
-
-            rawSaborRows.forEach(sRow => {
-                const lote = String(getCol(sRow, ['Lote', 'LOTE'])).trim();
-                if (!lote || seenLotes.has(lote)) return;
-                seenLotes.add(lote);
-
-                const m = metaByLote[lote];
-                const denom = m && m.sumaPesoPonderacion > 0 ? m.sumaPesoPonderacion : 1;
-
-                const camaroneraOrig = getCol(sRow, ['Camaronera']) || (m ? m.camaroneraOrig : 'No Especificada');
-                const piscina = String(getCol(sRow, ['Piscina']) || (m ? m.piscina : '')).trim();
-                const camaroneraOficial = reclasificarCamaronera(camaroneraOrig, piscina);
-                const proveedor = String(getCol(sRow, ['Proveedor']) || 'PROVEEDOR GENERAL').trim();
-                const librasTotales = toNum(getCol(sRow, ['Libras recibidas', 'Libras Recibidas'])) || (m ? m.sumaLibrasMuestras : 0);
-
-                // Flavor parameters from Sabor_Desglosado_Validado
-                const saborCaract = toNum(getCol(sRow, ['Sabor caracteristico %', 'Sabor característico %']));
-                const tml = Math.max(
-                    toNum(getCol(sRow, ['Sabor tierra cola muy leve %'])),
-                    toNum(getCol(sRow, ['Sabor tierra entero muy leve %']))
-                );
-                const tl = Math.max(
-                    toNum(getCol(sRow, ['Sabor tierra cola leve %'])),
-                    toNum(getCol(sRow, ['Sabor tierra entero leve %']))
-                );
-                const tf = Math.max(
-                    toNum(getCol(sRow, ['Sabor tierra cola fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor tierra entero fuerte %']))
-                );
-
-                const diesel = Math.max(
-                    toNum(getCol(sRow, ['Sabor combustible cola fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor combustible cola leve %'])),
-                    toNum(getCol(sRow, ['Sabor combustible cola muy leve %'])),
-                    toNum(getCol(sRow, ['Sabor combustible entero fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor combustible entero leve %'])),
-                    toNum(getCol(sRow, ['Sabor combustible entero muy leve %']))
-                );
-
-                const otrosSabores = Math.max(
-                    toNum(getCol(sRow, ['Sabor choclo cola fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor choclo cola leve %'])),
-                    toNum(getCol(sRow, ['Sabor choclo entero fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor choclo entero leve %'])),
-                    toNum(getCol(sRow, ['Sabor mangle cola fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor mangle cola leve %'])),
-                    toNum(getCol(sRow, ['Sabor gallinaza cola fuerte %'])),
-                    toNum(getCol(sRow, ['Sabor otros cola fuerte %']))
-                );
-
-                // Weighted physical metrics from Metabisulfito_Validado
-                const frescoSano = m ? (m.wFrescoSano / denom) : 70;
-                const metabisulfito = m ? (m.wMetabisulfito / denom) : 0;
-                const metaRange = m ? (m.metaMax - m.metaMin) : 0;
-                const gramajeEntero = m ? (m.wGramajeEntero / denom) : 0;
-                const gramajeDeclarado = m ? (m.wGramajeDeclarado / denom) : 0;
-                const manchaLeve = m ? (m.wManchaLeve / denom) : 0;
-                const manchaFuerte = m ? (m.wManchaFuerte / denom) : 0;
-                const hongoBacteria = m ? (m.wHongoBacteria / denom) : 0;
-                const flacido = m ? (m.wFlacido / denom) : 0;
-                const cabezaFloja = m ? (m.wCabezaFloja / denom) : 0;
-                const melanosis = m ? (m.wMelanosis / denom) : 0;
-                const cabezaNaranja = m ? (m.wCabezaNaranja / denom) : 0;
-
-                // Evaluate Organoleptic Matrix & Limiting Defect
-                const claseRaw = String(getCol(sRow, ['Clase a empacar']) || '').toUpperCase();
-                const evaluation = evaluarMatrizOrganoleptica({
-                    frescoSano, tml, tl, tf, diesel, otrosSabores, manchaLeve, manchaFuerte, hongoBacteria, claseRaw
-                });
-
-                unified.push({
-                    lote,
-                    fecha: getCol(sRow, ['Fecha registro del lote', 'Fecha de llegada']),
-                    proveedor,
-                    camaroneraOrig,
-                    camaroneraOficial,
-                    piscina,
-                    librasTotales,
-                    librasMuestreadas: m ? m.sumaLibrasMuestras : 0,
-                    muestrasCount: m ? m.muestrasCount : 0,
-                    frescoSano,
-                    metabisulfito,
-                    metaRange,
-                    gramajeEntero,
-                    gramajeDeclarado,
-                    deltaGramaje: (gramajeEntero > 0 && gramajeDeclarado > 0) ? (gramajeEntero - gramajeDeclarado) : 0,
-                    manchaLeve,
-                    manchaFuerte,
-                    hongoBacteria,
-                    flacido,
-                    cabezaFloja,
-                    melanosis,
-                    cabezaNaranja,
-                    defectosColorSuma: manchaFuerte + melanosis + cabezaNaranja,
-                    saborCaract,
-                    tml,
-                    tl,
-                    tf,
-                    tierraMax: Math.max(tml, tl, tf),
-                    diesel,
-                    claseAsignadaRaw: claseRaw || evaluation.claseFinal,
-                    claseLetra: evaluation.claseLetra,
-                    factoresLimitantes: evaluation.factores,
-                    categoriaCausaRaiz: evaluation.categoriaCausaRaiz
-                });
-            });
-
-            masterLots = unified;
-            populateFilterDropdowns();
-            applyFiltersAndRender();
-        }
-
-        // -------------------------------------------------------------------
-        // 4. ORGANOLEPTIC MATRIX ENGINE
-        // -------------------------------------------------------------------
-        function evaluarMatrizOrganoleptica(d) {
-            const factores = [];
-
-            // Check Diesel first (Clase D)
-            if (d.diesel > 0) {
-                factores.push(`Sabor Diesel/Combustible (${d.diesel.toFixed(1)}%)`);
-            }
-
-            // Check % Fresco y Sano (< 60% fails Clase A)
-            if (d.frescoSano < 60) {
-                factores.push(`% Fresco y Sano bajo (${d.frescoSano.toFixed(1)}% < 60%)`);
-            }
-
-            // Check Sabores Tierra / Off-Flavors (TML > 20%, TL > 0%, TF > 0%)
-            if (d.tf > 0 || d.tl > 0 || d.tml > 20 || d.otrosSabores > 0) {
-                if (d.tf > 0) factores.push(`Sabor Tierra Fuerte (${d.tf.toFixed(1)}%)`);
-                else if (d.tl > 0) factores.push(`Sabor Tierra Leve (${d.tl.toFixed(1)}%)`);
-                else if (d.tml > 20) factores.push(`Sabor Tierra Muy Leve (${d.tml.toFixed(1)}% > 20%)`);
-                else factores.push(`Sabores No Característicos (${d.otrosSabores.toFixed(1)}%)`);
-            }
-
-            // Check Manchas Leves (> 3%) & Manchas Fuertes (>= 5%)
-            if (d.manchaLeve > 3 || d.manchaFuerte >= 5) {
-                if (d.manchaFuerte >= 5) factores.push(`Manchas Fuertes (${d.manchaFuerte.toFixed(1)}% >= 5%)`);
-                if (d.manchaLeve > 3) factores.push(`Manchas Leves (${d.manchaLeve.toFixed(1)}% > 3%)`);
-            }
-
-            // Check Ataque Bacteriano Leve (>= 13%)
-            if (d.hongoBacteria >= 13) {
-                factores.push(`Ataque Bacteriano Leve (${d.hongoBacteria.toFixed(1)}% >= 13%)`);
-            }
-
-            // Determine theoretical class
-            let claseTeorica = 'A';
-            if (d.diesel > 0) {
-                claseTeorica = 'D';
-            } else if (
-                d.frescoSano <= 45 ||
-                d.manchaLeve >= 9 ||
-                d.manchaFuerte > 5 ||
-                d.hongoBacteria > 20 ||
-                d.tl >= 47 ||
-                d.tml >= 27 ||
-                d.tf >= 13
-            ) {
-                claseTeorica = 'C';
-            } else if (factores.length > 0) {
-                claseTeorica = 'B';
-            }
-
-            // Respect explicit CSV class if present, otherwise use theoretical
-            let claseLetra = claseTeorica;
-            if (d.claseRaw.startsWith('A')) claseLetra = 'A';
-            else if (d.claseRaw.startsWith('B')) claseLetra = 'B';
-            else if (d.claseRaw.startsWith('C')) claseLetra = 'C';
-            else if (d.claseRaw.startsWith('D')) claseLetra = 'D';
-
-            // Categorize root cause for Pareto/Waterfall chart
-            let categoriaCausaRaiz = 'Cumple Estándar Clase A';
-            if (claseLetra !== 'A') {
-                if (d.diesel > 0) {
-                    categoriaCausaRaiz = 'Sabor Combustible / Diesel';
-                } else if (factores.length > 1) {
-                    categoriaCausaRaiz = 'Múltiples Factores Combinados';
-                } else if (d.frescoSano < 60) {
-                    categoriaCausaRaiz = '% Fresco y Sano (< 60%)';
-                } else if (d.tf > 0 || d.tl > 0 || d.tml > 20 || d.otrosSabores > 0) {
-                    categoriaCausaRaiz = 'Sabor a Tierra (TML/TL/TF)';
-                } else if (d.manchaLeve > 3 || d.manchaFuerte >= 5) {
-                    categoriaCausaRaiz = 'Manchas Leves / Fuertes';
-                } else if (d.hongoBacteria >= 13) {
-                    categoriaCausaRaiz = 'Ataque Bacteriano Leve';
-                } else {
-                    categoriaCausaRaiz = 'Reclasificación Operativa Planta';
+        function getVal(row, possibleKeys) {
+            if (!Array.isArray(possibleKeys)) possibleKeys = [possibleKeys];
+            for (let k in row) {
+                let cleanKey = k.replace(/^\uFEFF/, '').replace(/^ï»¿/, '').trim().toLowerCase();
+                for (let pk of possibleKeys) {
+                    if (cleanKey === pk.toLowerCase()) return row[k];
                 }
             }
+            return undefined;
+        }
 
-            return {
-                claseLetra,
-                claseFinal: `CLASE ${claseLetra}`,
-                factores: factores.length > 0 ? factores : ['Todos los parámetros en rango Clase A'],
-                categoriaCausaRaiz
+        function resolveCamaronera(camSab, pisSab, camOmi, pisOmi) {
+            let finalPis = (pisSab || pisOmi || "").toString().trim().toUpperCase();
+            let genericName = "OPERADORA Y PROCESADORA DE PRODUCTOS MARINOS";
+            
+            const mapeoPiscinaCamaronera = {
+                "P1010": "Puerto Inca 1",
+                "932": "Camaronera Puna",
+                "293": "Camaronera Puna",
+                "897": "Camaronera Puna",
+                "75":  "Camaronera Cachugran",
+                "421": "Camaronera Chongon",
+                "845": "Camaronera Puna",
+                "868": "Camaronera Puna",
+                "848": "Camaronera Puna"
             };
-        }
 
-        // -------------------------------------------------------------------
-        // 5. FILTERING & UI RENDERING
-        // -------------------------------------------------------------------
-        function populateFilterDropdowns() {
-            const provSelect = document.getElementById('filterProveedor');
-            const camSelect = document.getElementById('filterCamaronera');
+            if (mapeoPiscinaCamaronera[finalPis]) {
+                return mapeoPiscinaCamaronera[finalPis];
+            }
+            
+            if (finalPis.startsWith("PU") && finalPis.length >= 3) return "Puerto Inca " + finalPis.charAt(2);
+            if (finalPis.startsWith("PD")) return "Puna 2";
+            if (finalPis.startsWith("PT")) return "Taura";
 
-            const proveedores = [...new Set(masterLots.map(d => d.proveedor))].sort();
-            const camaroneras = [...new Set(masterLots.map(d => d.camaroneraOficial))].sort();
-
-            provSelect.innerHTML = '<option value="ALL">Todos los Proveedores</option>' +
-                proveedores.map(p => `<option value="${p}">${p}</option>`).join('');
-
-            camSelect.innerHTML = '<option value="ALL">Todas las Camaroneras Oficiales</option>' +
-                camaroneras.map(c => `<option value="${c}">${c}</option>`).join('');
-        }
-
-        function applyFiltersAndRender() {
-            const provVal = document.getElementById('filterProveedor').value;
-            const camVal = document.getElementById('filterCamaronera').value;
-            const claseVal = document.getElementById('filterClase').value;
-            const searchVal = (document.getElementById('searchLoteInput').value || '').trim().toLowerCase();
-
-            filteredLots = masterLots.filter(item => {
-                if (provVal !== 'ALL' && item.proveedor !== provVal) return false;
-                if (camVal !== 'ALL' && item.camaroneraOficial !== camVal) return false;
-                if (claseVal !== 'ALL' && item.claseLetra !== claseVal) return false;
-                if (searchVal) {
-                    const match = item.lote.toLowerCase().includes(searchVal) ||
-                                  item.camaroneraOficial.toLowerCase().includes(searchVal) ||
-                                  item.piscina.toLowerCase().includes(searchVal) ||
-                                  item.proveedor.toLowerCase().includes(searchVal);
-                    if (!match) return false;
-                }
-                return true;
-            });
-
-            renderKPIs();
-            renderMatrixSummary();
-            renderTab1Charts();
-            renderHeatmapTable();
-            renderAuditTable();
-            renderTab2SupplierAnalytics();
-        }
-
-        function renderKPIs() {
-            const totalLotes = filteredLots.length;
-            const totalLibras = filteredLots.reduce((acc, d) => acc + d.librasTotales, 0);
-            const totalMuestras = filteredLots.reduce((acc, d) => acc + d.muestrasCount, 0);
-
-            const lotesA = filteredLots.filter(d => d.claseLetra === 'A');
-            const librasA = lotesA.reduce((acc, d) => acc + d.librasTotales, 0);
-            const pctLibrasA = totalLibras > 0 ? (librasA / totalLibras) * 100 : 0;
-
-            const librasDegradadas = totalLibras - librasA;
-            const pctDegradadas = totalLibras > 0 ? (librasDegradadas / totalLibras) * 100 : 0;
-
-            // Weighted % Fresco y Sano
-            const weightedFresco = totalLibras > 0
-                ? filteredLots.reduce((acc, d) => acc + (d.frescoSano * d.librasTotales), 0) / totalLibras
-                : 0;
-
-            // Weighted Gramaje Deviation
-            const lotsWithGramaje = filteredLots.filter(d => d.gramajeEntero > 0 && d.gramajeDeclarado > 0);
-            const librasGramaje = lotsWithGramaje.reduce((acc, d) => acc + d.librasTotales, 0);
-            const wRealGram = librasGramaje > 0
-                ? lotsWithGramaje.reduce((acc, d) => acc + (d.gramajeEntero * d.librasTotales), 0) / librasGramaje
-                : 0;
-            const wDeclGram = librasGramaje > 0
-                ? lotsWithGramaje.reduce((acc, d) => acc + (d.gramajeDeclarado * d.librasTotales), 0) / librasGramaje
-                : 0;
-            const deltaGram = wRealGram - wDeclGram;
-
-            // Top cause of degradation
-            const causasMap = {};
-            filteredLots.filter(d => d.claseLetra !== 'A').forEach(d => {
-                causasMap[d.categoriaCausaRaiz] = (causasMap[d.categoriaCausaRaiz] || 0) + d.librasTotales;
-            });
-            const topCausaEntry = Object.entries(causasMap).sort((a, b) => b[1] - a[1])[0];
-
-            document.getElementById('kpiTotalLibras').textContent = Math.round(totalLibras).toLocaleString('es-EC') + ' lb';
-            document.getElementById('kpiTotalLotes').textContent = `${totalLotes} Lotes únicos`;
-            document.getElementById('kpiTotalMuestras').textContent = `${totalMuestras} Muestras lab.`;
-
-            document.getElementById('kpiPctClaseA').textContent = pctLibrasA.toFixed(1) + '%';
-            document.getElementById('kpiLibrasClaseA').textContent = Math.round(librasA).toLocaleString('es-EC') + ' lb Clase A';
-            document.getElementById('kpiLotesClaseA').textContent = `${lotesA.length} de ${totalLotes} lotes`;
-
-            document.getElementById('kpiLibrasDegradadas').textContent = Math.round(librasDegradadas).toLocaleString('es-EC') + ' lb';
-            document.getElementById('kpiPctDegradadas').textContent = `${pctDegradadas.toFixed(1)}% del volumen`;
-            document.getElementById('kpiCausaPrincipal').textContent = topCausaEntry ? topCausaEntry[0] : 'Sin degradación';
-
-            document.getElementById('kpiFrescoSano').textContent = weightedFresco.toFixed(1) + '%';
-            const frescoEl = document.getElementById('kpiFrescoStatus');
-            if (weightedFresco >= 60) {
-                frescoEl.textContent = 'En Rango Clase A (≥60%)';
-                frescoEl.className = 'font-semibold text-emerald-700';
-            } else {
-                frescoEl.textContent = 'Bajo Meta (<60%)';
-                frescoEl.className = 'font-semibold text-rose-700';
+            let finalCam = camOmi || "Desconocida";
+            if (camSab && !camSab.toUpperCase().includes(genericName)) {
+                finalCam = camSab;
+            } else if (camOmi && !camOmi.toUpperCase().includes(genericName) && (!camSab || camSab.toUpperCase().includes(genericName))) {
+                finalCam = camOmi;
+            } else if (camSab) {
+                finalCam = camSab;
             }
 
-            const sign = deltaGram > 0 ? '+' : '';
-            document.getElementById('kpiDeltaGramaje').textContent = `${sign}${deltaGram.toFixed(2)} g`;
-            document.getElementById('kpiDeltaGramaje').className = `text-2xl font-bold tracking-tight ${deltaGram < -0.3 ? 'text-rose-700' : 'text-slate-900'}`;
-            document.getElementById('kpiGramajeReal').textContent = `Real: ${wRealGram.toFixed(1)}g`;
-            document.getElementById('kpiGramajeDecl').textContent = `Decl: ${wDeclGram.toFixed(1)}g`;
+            if (finalCam.toUpperCase().includes(genericName) || finalCam.toUpperCase().includes("OMARSA S.A.")) {
+                 if(finalPis) return "Omarsa - Piscina " + finalPis;
+                 return "Omarsa (Genérico)";
+            }
+
+            return finalCam;
         }
 
-        function renderMatrixSummary() {
-            const totalLibras = filteredLots.reduce((acc, d) => acc + d.librasTotales, 0) || 1;
-            const volByClass = { A: 0, B: 0, C: 0, D: 0 };
-            let countFresco = 0, countSabor = 0, countManchas = 0, countBact = 0;
-
-            filteredLots.forEach(d => {
-                volByClass[d.claseLetra] = (volByClass[d.claseLetra] || 0) + d.librasTotales;
-                if (d.frescoSano < 60) countFresco++;
-                if (d.tf > 0 || d.tl > 0 || d.tml > 20 || d.diesel > 0) countSabor++;
-                if (d.manchaLeve > 3 || d.manchaFuerte >= 5) countManchas++;
-                if (d.hongoBacteria >= 13) countBact++;
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            let files = e.target.files;
+            let loaded = 0;
+            Array.from(files).forEach(file => {
+                Papa.parse(file, {
+                    header: true, 
+                    dynamicTyping: false, 
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        let name = file.name.toLowerCase();
+                        if(name.includes('omiprod')) db.liquidaciones = results.data;
+                        else if(name.includes('sabor')) db.sabores = results.data;
+                        else if(name.includes('metabisulfito')) db.metabisulfito = results.data;
+                        
+                        loaded++;
+                        if(loaded === files.length) initProcesamiento();
+                    }
+                });
             });
+        });
 
-            ['A', 'B', 'C', 'D'].forEach(c => {
-                const lbs = Math.round(volByClass[c]).toLocaleString('es-EC');
-                const pct = ((volByClass[c] / totalLibras) * 100).toFixed(1);
-                document.getElementById(`matrixVol${c}`).textContent = `${lbs} lb (${pct}%)`;
-            });
-
-            document.getElementById('trigFresco').textContent = `${countFresco} lotes`;
-            document.getElementById('trigSabor').textContent = `${countSabor} lotes`;
-            document.getElementById('trigManchas').textContent = `${countManchas} lotes`;
-            document.getElementById('trigBacteria').textContent = `${countBact} lotes`;
+        async function fetchInitialData() {
+            try {
+                const files = [
+                    { key: 'liquidaciones', path: './OMIPROD0016_tblControlDeLotesTmp.csv' },
+                    { key: 'sabores', path: './Sabor_Desglosado_Validado.csv' },
+                    { key: 'metabisulfito', path: './Metabisulfito_Validado.csv' }
+                ];
+                let allLoaded = true;
+                for (let f of files) {
+                    let res = await fetch(f.path);
+                    if (!res.ok) { allLoaded = false; break; }
+                    let text = await res.text();
+                    let parsed = Papa.parse(text, { 
+                        header: true, 
+                        dynamicTyping: false, 
+                        skipEmptyLines: true 
+                    });
+                    db[f.key] = parsed.data;
+                }
+                
+                if(allLoaded && db.liquidaciones.length > 0) {
+                    initProcesamiento();
+                } else {
+                    document.getElementById('status-indicator').textContent = "Usa el botón para cargar CSVs locales";
+                }
+            } catch (e) {
+                document.getElementById('status-indicator').textContent = "Carga los CSVs manualmente";
+            }
         }
 
-        // -------------------------------------------------------------------
-        // 6. TAB 1 CHARTS & TABLES
-        // -------------------------------------------------------------------
-        function renderTab1Charts() {
-            // Chart 1: Limiting Factors Breakdown (Libras)
-            const categories = [
-                'Cumple Estándar Clase A',
-                'Sabor a Tierra (TML/TL/TF)',
-                '% Fresco y Sano (< 60%)',
-                'Manchas Leves / Fuertes',
-                'Ataque Bacteriano Leve',
-                'Múltiples Factores Combinados',
-                'Sabor Combustible / Diesel'
-            ];
+        function initProcesamiento() {
+            document.getElementById('status-indicator').textContent = "Procesando Datos...";
+            document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full";
+            
+            let lotesMap = new Map();
+            let camaronerasSet = new Set();
 
-            const librasPorCat = categories.map(cat =>
-                Math.round(filteredLots.filter(d => d.categoriaCausaRaiz === cat).reduce((acc, d) => acc + d.librasTotales, 0))
-            );
+            db.liquidaciones.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(!lote) return;
+                
+                if(!lotesMap.has(lote)) {
+                    lotesMap.set(lote, {
+                        Lote: lote,
+                        Camaronera_Original_Omi: (getVal(row, ['Camaronera']) || "").trim(),
+                        Piscina_Omi: (getVal(row, ['Piscina']) || "").trim(),
+                        Camaronera_Oficial: "Desconocida",
+                        Piscina: "",
+                        Libras_Recibidas: parseNum(getVal(row, ['Libras Recibidas'])),
+                        Libras_Procesadas: parseNum(getVal(row, ['Libras Procesadas'])),
+                        Basura: parseNum(getVal(row, ['Basura'])),
+                        Rechazo: parseNum(getVal(row, ['Rechazo'])),
+                        Gramaje_OC: parseNum(getVal(row, ['Gramaje OC'])),
+                        Valor_Total: 0,
+                        Clases: { A: 0, B: 0, C: 0, D: 0, RECHAZO: 0 },
+                        TML: 0, TL: 0, TF: 0, Sabor_Caract: 0, Otros_Sabores: 0
+                    });
+                }
+                let l = lotesMap.get(lote);
+                l.Valor_Total += parseNum(getVal(row, ['Valor Total $']));
+                
+                let librasFilas = parseNum(getVal(row, ['Libras Totales']));
+                let claseStr = (getVal(row, ['Clase']) || "").toString().toUpperCase().trim();
+                let mpLiquidar = (getVal(row, ['Materia Prima a liquidar']) || "").toString().toUpperCase().trim();
+                
+                if(mpLiquidar.includes('RECHAZO') || mpLiquidar.includes('COLA')) {
+                    l.Clases.RECHAZO += librasFilas;
+                } else if(claseStr === 'A') l.Clases.A += librasFilas;
+                else if(claseStr === 'B') l.Clases.B += librasFilas;
+                else if(claseStr === 'C') l.Clases.C += librasFilas;
+                else if(claseStr === 'D') l.Clases.D += librasFilas;
+            });
 
-            if (charts.limitantes) charts.limitantes.destroy();
-            charts.limitantes = new Chart(document.getElementById('chartLimitantes'), {
+            let metaTemp = {};
+            db.metabisulfito.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(!lote) return;
+                if(!metaTemp[lote]) metaTemp[lote] = { totalLbs: 0, frescoSuma: 0, metaSuma: 0, manchaL: 0, manchaF: 0, bactL: 0 };
+                
+                let lbs = parseNum(getVal(row, ['Libras recibidas']));
+                metaTemp[lote].totalLbs += lbs;
+                metaTemp[lote].frescoSuma += parseNum(getVal(row, ['E. fresco y sano (%)'])) * lbs;
+                metaTemp[lote].metaSuma += parseNum(getVal(row, ['Porcentaje de metabisulfito'])) * lbs;
+                metaTemp[lote].manchaL += parseNum(getVal(row, ['E. mancha leve (%)'])) * lbs;
+                metaTemp[lote].manchaF += parseNum(getVal(row, ['E. mancha fuerte (%)'])) * lbs;
+                metaTemp[lote].bactL += parseNum(getVal(row, ['E. hongo/bacteria leve (%)'])) * lbs;
+            });
+
+            db.sabores.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(lotesMap.has(lote)) {
+                    let l = lotesMap.get(lote);
+                    let pisSab = (getVal(row, ['Piscina']) || "").trim();
+                    let camSab = (getVal(row, ['Camaronera']) || "").trim();
+                    
+                    l.Proveedor = (getVal(row, ['Proveedor']) || "Desconocido").trim();
+                    l.Piscina = pisSab || l.Piscina_Omi;
+                    
+                    l.Camaronera_Oficial = resolveCamaronera(camSab, pisSab, l.Camaronera_Original_Omi, l.Piscina_Omi);
+                    camaronerasSet.add(l.Camaronera_Oficial);
+                    
+                    l.Sabor_Caract = parseNum(getVal(row, ['Sabor caracteristico %']));
+                    
+                    l.TML = parseNum(getVal(row, ['Sabor tierra entero muy leve %']));
+                    l.TL = parseNum(getVal(row, ['Sabor tierra entero leve %']));
+                    l.TF = parseNum(getVal(row, ['Sabor tierra entero fuerte %']));
+                    l.Tierra_Max = l.TML + l.TL + l.TF;
+                    
+                    let sumaOtros = 0;
+                    for (let key in row) {
+                        if (key.trim().startsWith('Sabor') && key.trim().endsWith('%')) {
+                            let k = key.toLowerCase();
+                            if (k.includes('entero') && !k.includes('caracteristico') && !k.includes('tierra')) {
+                                sumaOtros += parseNum(row[key]);
+                            }
+                        }
+                    }
+                    l.Otros_Sabores = sumaOtros;
+                    l.Diesel = parseNum(getVal(row, ['Sabor combustible entero fuerte %']));
+                }
+            });
+
+            Array.from(lotesMap.values()).forEach(l => {
+                let lote = l.Lote;
+                
+                if (l.Camaronera_Oficial === "Desconocida" && (l.Camaronera_Original_Omi || l.Piscina_Omi)) {
+                    l.Camaronera_Oficial = resolveCamaronera(null, null, l.Camaronera_Original_Omi, l.Piscina_Omi);
+                    camaronerasSet.add(l.Camaronera_Oficial);
+                }
+
+                if(metaTemp[lote] && metaTemp[lote].totalLbs > 0) {
+                    l.Perc_Fresco = metaTemp[lote].frescoSuma / metaTemp[lote].totalLbs;
+                    l.Perc_Meta = metaTemp[lote].metaSuma / metaTemp[lote].totalLbs;
+                    l.Mancha_Leve = metaTemp[lote].manchaL / metaTemp[lote].totalLbs;
+                    l.Mancha_Fuerte = metaTemp[lote].manchaF / metaTemp[lote].totalLbs;
+                    l.Bact_Leve = metaTemp[lote].bactL / metaTemp[lote].totalLbs;
+                } else {
+                    l.Perc_Fresco = 0; l.Perc_Meta = 0; l.Mancha_Leve = 0; l.Mancha_Fuerte = 0; l.Bact_Leve = 0;
+                }
+                
+                let maxLbs = 0;
+                let cValida = "-";
+                if(l.Clases.A > maxLbs) { cValida = 'A'; maxLbs = l.Clases.A; }
+                if(l.Clases.B > maxLbs) { cValida = 'B'; maxLbs = l.Clases.B; }
+                if(l.Clases.C > maxLbs) { cValida = 'C'; maxLbs = l.Clases.C; }
+                if(l.Clases.D > maxLbs) { cValida = 'D'; maxLbs = l.Clases.D; }
+                
+                l.Clase_Valida = (l.Diesel > 0) ? 'D' : cValida;
+            });
+
+            db.consolidado = Array.from(lotesMap.values());
+            
+            let camSelect = document.getElementById('filterCamaronera');
+            camSelect.innerHTML = '<option value="ALL">Todas</option>';
+            Array.from(camaronerasSet).sort().forEach(c => {
+                 let opt = document.createElement('option');
+                 opt.value = c; opt.innerHTML = c;
+                 camSelect.appendChild(opt);
+            });
+
+            renderDashboard();
+            document.getElementById('status-indicator').textContent = "Dashboard Actualizado";
+            document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full";
+        }
+
+        function createChart(id, config) {
+            if(charts[id]) charts[id].destroy();
+            charts[id] = new Chart(document.getElementById(id), config);
+        }
+
+        function getFilteredData() {
+            let filterCam = document.getElementById('filterCamaronera').value;
+            let filterClase = document.getElementById('filterClase').value;
+            
+            return db.consolidado.filter(d => {
+                let matchCam = filterCam === 'ALL' || d.Camaronera_Oficial === filterCam;
+                let matchClase = filterClase === 'ALL' || d.Clase_Valida === filterClase;
+                return matchCam && matchClase;
+            });
+        }
+
+        function renderDashboard() {
+            const data = getFilteredData();
+            
+            let totalRecibidas = data.reduce((a,b)=>a+b.Libras_Recibidas, 0);
+            let totalProcesadas = data.reduce((a,b)=>a+b.Libras_Procesadas, 0);
+            let totalRechazo = data.reduce((a,b)=>a+b.Rechazo, 0);
+            let totalBasura = data.reduce((a,b)=>a+b.Basura, 0);
+            let totalClaseA = data.reduce((a,b)=>a+b.Clases.A, 0);
+            let totalClaseB = data.reduce((a,b)=>a+b.Clases.B, 0);
+            let totalClaseC = data.reduce((a,b)=>a+b.Clases.C, 0);
+            let totalClaseD = data.reduce((a,b)=>a+b.Clases.D, 0);
+            let totalValor = data.reduce((a,b)=>a+b.Valor_Total, 0);
+            
+            let rndIndustrial = totalRecibidas > 0 ? (totalProcesadas/totalRecibidas)*100 : 0;
+            let dowRechazo = totalProcesadas > 0 ? (totalRechazo/totalProcesadas)*100 : 0;
+            let recPremium = totalProcesadas > 0 ? (totalClaseA/totalProcesadas)*100 : 0;
+
+            document.getElementById('kpi-rendimiento').innerText = rndIndustrial.toFixed(1) + "%";
+            document.getElementById('kpi-rechazo').innerText = dowRechazo.toFixed(1) + "%";
+            document.getElementById('kpi-rechazo-sub').innerText = totalRechazo.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs desviadas";
+            document.getElementById('kpi-premium').innerText = recPremium.toFixed(1) + "%";
+            document.getElementById('kpi-premium-sub').innerText = totalClaseA.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs";
+            document.getElementById('kpi-procesadas').innerText = totalProcesadas.toLocaleString('en-US', {maximumFractionDigits:0});
+            document.getElementById('kpi-valor').innerText = "Valor Liq: $" + totalValor.toLocaleString('en-US', {maximumFractionDigits:0});
+
+            let baseCascada = totalRecibidas > 0 ? totalRecibidas : 1;
+            let pctBasura = (totalBasura / baseCascada) * 100;
+            let pctProcesadas = (totalProcesadas / baseCascada) * 100;
+            let pctRechazo = (totalRechazo / baseCascada) * 100;
+            let pctEntero = pctProcesadas - pctRechazo;
+            let valArray = [totalRecibidas, -totalBasura, totalProcesadas, -totalRechazo, totalProcesadas - totalRechazo];
+
+            createChart('chartWaterfall', {
                 type: 'bar',
                 data: {
-                    labels: categories,
+                    labels: ['1. Recibidas', '2. Merma/Basura', '3. Procesadas', '4. Desvío Cola', '5. Entero Final'],
                     datasets: [{
-                        label: 'Libras Recibidas por Condición Limitante',
-                        data: librasPorCat,
-                        backgroundColor: [
-                            '#059669', // Clase A Emerald
-                            '#d97706', // Tierra Amber
-                            '#e11d48', // Fresco y Sano Rose
-                            '#6366f1', // Manchas Indigo
-                            '#0284c7', // Bacteria Sky
-                            '#dc2626', // Múltiples Red
-                            '#1e293b'  // Diesel Slate
-                        ],
-                        borderRadius: 6,
-                        barPercentage: 0.65
+                        label: '% del Lote',
+                        data: [100, -pctBasura, pctProcesadas, -pctRechazo, pctEntero],
+                        backgroundColor: ['#94a3b8', '#fecdd3', '#3b82f6', '#f59e0b', '#10b981'],
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { 
+                            callbacks: { 
+                                label: (ctx) => {
+                                    let pct = Math.abs(ctx.raw).toFixed(2) + '%';
+                                    let val = Math.abs(valArray[ctx.dataIndex]).toLocaleString('en-US', {maximumFractionDigits:0}) + ' lbs';
+                                    return `${pct} (${val})`;
+                                }
+                            } 
+                        }
+                    },
+                    scales: { y: { suggestedMin: -10, suggestedMax: 100 } }
+                }
+            });
+
+            createChart('chartPie', {
+                type: 'pie',
+                plugins: [ChartDataLabels],
+                data: {
+                    labels: ['Clase A', 'Talla', 'Clase C', 'Clase D'],
+                    datasets: [{
+                        data: [totalClaseA, totalClaseB, totalClaseC, totalClaseD],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6366f1'],
                     }]
                 },
                 options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false },
+                        legend: { position: 'bottom' },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 12 },
+                            formatter: (value, ctx) => {
+                                let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (value === 0 || total === 0) return '';
+                                let percentage = ((value / total) * 100).toFixed(1) + '%';
+                                return percentage;
+                            }
+                        },
                         tooltip: {
                             callbacks: {
-                                label: ctx => ` ${ctx.raw.toLocaleString('es-EC')} lb`
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw;
+                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    let percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                    return `${label}: ${percentage} (${value.toLocaleString()} lbs)`;
+                                }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: '#f1f5f9' },
-                            ticks: { font: { size: 11 } }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { font: { size: 11, weight: '500' }, color: '#1e293b' }
-                        }
                     }
                 }
             });
 
-            // Chart 2: Metabisulfito vs Defectos Cromáticos por Camaronera Oficial
-            const camGroups = {};
-            filteredLots.forEach(d => {
-                if (!camGroups[d.camaroneraOficial]) {
-                    camGroups[d.camaroneraOficial] = { lbs: 0, wMeta: 0, wColorDefects: 0, wFlacido: 0 };
-                }
-                const g = camGroups[d.camaroneraOficial];
-                g.lbs += d.librasTotales;
-                g.wMeta += d.metabisulfito * d.librasTotales;
-                g.wColorDefects += d.defectosColorSuma * d.librasTotales;
-                g.wFlacido += d.flacido * d.librasTotales;
+            let cls = { A:{lbs:0}, B:{lbs:0}, C:{lbs:0}, D:{lbs:0} };
+            data.forEach(d => {
+                if(d.Clase_Valida === 'A') cls.A.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'B') cls.B.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'C') cls.C.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'D') cls.D.lbs += d.Libras_Procesadas;
             });
+            let totValidas = cls.A.lbs + cls.B.lbs + cls.C.lbs + cls.D.lbs || 1;
 
-            const camLabels = Object.keys(camGroups).sort();
-            const metaData = camLabels.map(c => +(camGroups[c].wMeta / (camGroups[c].lbs || 1)).toFixed(1));
-            const colorDefectsData = camLabels.map(c => +(camGroups[c].wColorDefects / (camGroups[c].lbs || 1)).toFixed(1));
-            const flacidoData = camLabels.map(c => +(camGroups[c].wFlacido / (camGroups[c].lbs || 1)).toFixed(1));
+            document.getElementById('tbody-matriz').innerHTML = `
+                <tr>
+                    <td class="font-bold text-emerald-600">CLASE A</td>
+                    <td>60 - 100%</td>
+                    <td>Normal / TML &le; 20%</td>
+                    <td>ML &le; 3% | MF &lt; 5%</td>
+                    <td>&lt; 13%</td>
+                    <td class="font-bold text-emerald-700">${cls.A.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.A.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-amber-50/30">
+                    <td class="font-bold text-amber-600">TALLA</td>
+                    <td>46 - 59%</td>
+                    <td>TL &lt; 47% | TML &lt; 27%</td>
+                    <td>ML 4-8% | MF 5%</td>
+                    <td>14 - 20%</td>
+                    <td class="font-bold text-amber-600">${cls.B.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.B.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-rose-50/30">
+                    <td class="font-bold text-rose-600">CLASE C</td>
+                    <td>&le; 45%</td>
+                    <td>Excede límites B</td>
+                    <td>ML &ge; 9% | MF &gt; 5%</td>
+                    <td>&gt; 20%</td>
+                    <td class="font-bold text-rose-600">${cls.C.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.C.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-indigo-50/30">
+                    <td class="font-bold text-indigo-800">CLASE D</td>
+                    <td colspan="4" class="text-indigo-600 font-semibold text-center">Presencia de Sabor Combustible / Diesel</td>
+                    <td class="font-bold text-indigo-700">${cls.D.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.D.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+            `;
 
-            if (charts.metabisulfito) charts.metabisulfito.destroy();
-            charts.metabisulfito = new Chart(document.getElementById('chartMetabisulfito'), {
-                type: 'bar',
-                data: {
-                    labels: camLabels,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: '% Metabisulfito Prom. Ponderado',
-                            data: metaData,
-                            backgroundColor: 'rgba(15, 23, 42, 0.82)',
-                            borderRadius: 5,
-                            yAxisID: 'y'
-                        },
-                        {
-                            type: 'line',
-                            label: '% Defectos Color (Mancha F. + Melanosis + Cab. Naranja)',
-                            data: colorDefectsData,
-                            borderColor: '#e11d48',
-                            backgroundColor: '#e11d48',
-                            borderWidth: 2.5,
-                            tension: 0.3,
-                            yAxisID: 'y1'
-                        },
-                        {
-                            type: 'line',
-                            label: '% Flácido Prom. Ponderado',
-                            data: flacidoData,
-                            borderColor: '#d97706',
-                            backgroundColor: '#d97706',
-                            borderDash: [4, 4],
-                            borderWidth: 2,
-                            tension: 0.3,
-                            yAxisID: 'y1'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                        y: {
-                            type: 'linear',
-                            position: 'left',
-                            title: { display: true, text: '% Metabisulfito', font: { size: 11 } },
-                            beginAtZero: true,
-                            grid: { color: '#f1f5f9' }
-                        },
-                        y1: {
-                            type: 'linear',
-                            position: 'right',
-                            title: { display: true, text: '% Defectos Físicos / Color', font: { size: 11 } },
-                            beginAtZero: true,
-                            grid: { drawOnChartArea: false }
-                        }
-                    }
-                }
-            });
-        }
-
-        function renderHeatmapTable() {
-            const tbody = document.getElementById('heatmapTableBody');
-            const poolMap = {};
-
-            filteredLots.forEach(d => {
-                const key = `${d.camaroneraOficial}__${d.piscina}`;
-                if (!poolMap[key]) {
-                    poolMap[key] = {
-                        camaronera: d.camaroneraOficial,
-                        piscina: d.piscina,
-                        lbs: 0,
-                        lbsA: 0,
-                        wFresco: 0,
-                        wTierra: 0,
-                        wManchas: 0,
-                        wBact: 0
-                    };
-                }
-                const p = poolMap[key];
-                p.lbs += d.librasTotales;
-                if (d.claseLetra === 'A') p.lbsA += d.librasTotales;
-                p.wFresco += d.frescoSano * d.librasTotales;
-                p.wTierra += d.tierraMax * d.librasTotales;
-                p.wManchas += Math.max(d.manchaLeve, d.manchaFuerte) * d.librasTotales;
-                p.wBact += d.hongoBacteria * d.librasTotales;
-            });
-
-            const rows = Object.values(poolMap).sort((a, b) => b.lbs - a.lbs);
-            tbody.innerHTML = rows.map(r => {
-                const denom = r.lbs || 1;
-                const fresco = r.wFresco / denom;
-                const tierra = r.wTierra / denom;
-                const manchas = r.wManchas / denom;
-                const bact = r.wBact / denom;
-                const pctA = (r.lbsA / denom) * 100;
-
-                const frescoClass = fresco >= 60 ? 'bg-emerald-50 text-emerald-800 font-semibold' : (fresco >= 46 ? 'bg-amber-100 text-amber-900 font-bold' : 'bg-rose-100 text-rose-900 font-bold');
-                const tierraClass = tierra === 0 ? 'text-slate-500' : (tierra <= 20 ? 'bg-amber-50 text-amber-800 font-medium' : 'bg-rose-100 text-rose-800 font-bold');
-                const manchaClass = manchas <= 3 ? 'text-slate-600' : (manchas <= 8 ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-rose-100 text-rose-900 font-bold');
-                const bactClass = bact < 13 ? 'text-slate-600' : (bact <= 20 ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-rose-100 text-rose-900 font-bold');
-
-                return `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-2 font-semibold text-slate-800">${r.camaronera}</td>
-                        <td class="p-2 font-mono text-slate-600">${r.piscina}</td>
-                        <td class="p-2 text-right font-medium">${Math.round(r.lbs).toLocaleString('es-EC')}</td>
-                        <td class="p-2 text-center"><span class="px-2 py-0.5 rounded ${frescoClass}">${fresco.toFixed(1)}%</span></td>
-                        <td class="p-2 text-center"><span class="px-2 py-0.5 rounded ${tierraClass}">${tierra.toFixed(1)}%</span></td>
-                        <td class="p-2 text-center"><span class="px-2 py-0.5 rounded ${manchaClass}">${manchas.toFixed(1)}%</span></td>
-                        <td class="p-2 text-center"><span class="px-2 py-0.5 rounded ${bactClass}">${bact.toFixed(1)}%</span></td>
-                        <td class="p-2 text-center font-bold ${pctA === 100 ? 'text-emerald-700' : 'text-rose-700'}">${pctA.toFixed(0)}%</td>
-                    </tr>
-                `;
+            let arrLotes = [...data].sort((a,b) => b.Libras_Procesadas - a.Libras_Procesadas);
+            document.getElementById('tbody-calor').innerHTML = arrLotes.map(d => {
+                let fr = d.Perc_Fresco || 0;
+                let meta = d.Perc_Meta || 0;
+                let mlf = d.Mancha_Leve + d.Mancha_Fuerte || 0;
+                let bac = d.Bact_Leve || 0;
+                
+                let pA = d.Libras_Procesadas > 0 ? (d.Clases.A / d.Libras_Procesadas) * 100 : 0;
+                let pB = d.Libras_Procesadas > 0 ? (d.Clases.B / d.Libras_Procesadas) * 100 : 0;
+                let pC = d.Libras_Procesadas > 0 ? (d.Clases.C / d.Libras_Procesadas) * 100 : 0;
+                let pD = d.Libras_Procesadas > 0 ? (d.Clases.D / d.Libras_Procesadas) * 100 : 0;
+                
+                let badgeFr = fr >= 60 ? 'badge-green' : (fr >= 46 ? 'badge-yellow' : 'badge-red');
+                let colorA = pA >= 50 ? 'text-emerald-600' : (pA >= 20 ? 'text-emerald-500' : 'text-slate-600');
+                let colorB = pB >= 20 ? 'text-amber-600' : 'text-slate-600';
+                let colorC = pC > 0 ? 'text-rose-600' : 'text-slate-600';
+                let colorD = pD > 0 ? 'text-indigo-600' : 'text-slate-600';
+                
+                return `<tr>
+                    <td class="font-mono font-bold">${d.Lote}</td>
+                    <td class="font-semibold">${d.Camaronera_Oficial}</td>
+                    <td>${d.Piscina}</td>
+                    <td class="font-mono">${d.Libras_Procesadas.toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+                    <td><span class="${badgeFr}">${fr.toFixed(1)}%</span></td>
+                    <td class="font-mono text-slate-700">${meta.toFixed(1)}</td>
+                    <td class="bg-slate-50 font-bold text-emerald-700">${(d.Sabor_Caract || 0).toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TML.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TL.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TF.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-bold text-slate-700">${d.Otros_Sabores.toFixed(1)}%</td>
+                    <td>${mlf.toFixed(1)}%</td>
+                    <td>${bac.toFixed(1)}%</td>
+                    <td class="font-bold ${colorA}">${pA.toFixed(1)}%</td>
+                    <td class="font-bold ${colorB}">${pB.toFixed(1)}%</td>
+                    <td class="font-bold ${colorC}">${pC.toFixed(1)}%</td>
+                    <td class="font-bold ${colorD}">${pD.toFixed(1)}%</td>
+                </tr>`;
             }).join('');
-        }
 
-        function renderAuditTable() {
-            const tbody = document.getElementById('auditTableBody');
-            if (filteredLots.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" class="p-6 text-center text-slate-400">No existen lotes que coincidan con los filtros seleccionados.</td></tr>`;
-                return;
-            }
-
-            const badgeColors = {
-                A: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
-                B: 'bg-amber-100 text-amber-800 border border-amber-300',
-                C: 'bg-rose-100 text-rose-800 border border-rose-300',
-                D: 'bg-slate-900 text-white'
-            };
-
-            tbody.innerHTML = filteredLots.map(d => {
-                const tierraText = d.tierraMax > 0
-                    ? `<span class="text-rose-700 font-semibold">Tierra: ${d.tierraMax.toFixed(1)}%</span>`
-                    : `<span class="text-emerald-700">${d.saborCaract.toFixed(0)}% Caract.</span>`;
-
-                return `
-                    <tr class="hover:bg-slate-50/90 transition">
-                        <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${d.lote}</td>
-                        <td class="py-2.5 px-3 font-semibold text-slate-800">${d.camaroneraOficial}</td>
-                        <td class="py-2.5 px-3 font-mono text-slate-600">${d.piscina} <span class="text-[10px] text-slate-400">(${d.camaroneraOrig})</span></td>
-                        <td class="py-2.5 px-3 text-right font-semibold text-slate-900">${Math.round(d.librasTotales).toLocaleString('es-EC')} lb</td>
-                        <td class="py-2.5 px-3 text-center">
-                            <span class="bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded">${d.muestrasCount}</span>
-                        </td>
-                        <td class="py-2.5 px-3 text-center font-bold ${d.frescoSano >= 60 ? 'text-emerald-700' : (d.frescoSano >= 46 ? 'text-amber-700' : 'text-rose-700')}">
-                            ${d.frescoSano.toFixed(1)}%
-                        </td>
-                        <td class="py-2.5 px-3 text-center">${tierraText}</td>
-                        <td class="py-2.5 px-3 text-center ${d.manchaLeve > 3 || d.manchaFuerte >= 5 ? 'text-rose-700 font-bold' : 'text-slate-600'}">
-                            ${d.manchaLeve.toFixed(1)}% / ${d.manchaFuerte.toFixed(1)}%
-                        </td>
-                        <td class="py-2.5 px-3 text-center ${d.hongoBacteria >= 13 ? 'text-rose-700 font-bold' : 'text-slate-600'}">
-                            ${d.hongoBacteria.toFixed(1)}%
-                        </td>
-                        <td class="py-2.5 px-3 text-center text-slate-700">
-                            ${d.metabisulfito.toFixed(1)}% <span class="text-[10px] text-slate-400">(&Delta;${d.metaRange.toFixed(1)})</span>
-                        </td>
-                        <td class="py-2.5 px-3 text-center">
-                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${badgeColors[d.claseLetra]}">CLASE ${d.claseLetra}</span>
-                        </td>
-                        <td class="py-2.5 px-3 text-xs ${d.claseLetra === 'A' ? 'text-emerald-700 font-medium' : 'text-rose-700 font-semibold'}">
-                            ${d.factoresLimitantes.join(' • ')}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // -------------------------------------------------------------------
-        // 7. TAB 2: SUPPLIER & FARM RANKING ANALYTICS
-        // -------------------------------------------------------------------
-        function renderTab2SupplierAnalytics() {
-            const groupMode = document.getElementById('rankingGroupBy').value; // 'camaronera' or 'proveedor'
-            const groups = {};
-
-            filteredLots.forEach(d => {
-                const key = groupMode === 'camaronera' ? d.camaroneraOficial : d.proveedor;
-                if (!groups[key]) {
-                    groups[key] = {
-                        nombre: key,
-                        lotes: 0,
-                        libras: 0,
-                        wFrescoSano: 0,
-                        wSaborCaract: 0,
-                        wDeltaGram: 0,
-                        lotesA: 0,
-                        lotesB: 0,
-                        lotesC: 0,
-                        lotesD: 0
-                    };
-                }
-                const g = groups[key];
-                g.lotes += 1;
-                g.libras += d.librasTotales;
-                g.wFrescoSano += d.frescoSano * d.librasTotales;
-                g.wSaborCaract += d.saborCaract * d.librasTotales;
-                g.wDeltaGram += d.deltaGramaje * d.librasTotales;
-                if (d.claseLetra === 'A') g.lotesA++;
-                else if (d.claseLetra === 'B') g.lotesB++;
-                else if (d.claseLetra === 'C') g.lotesC++;
-                else if (d.claseLetra === 'D') g.lotesD++;
+            let provs = {};
+            data.forEach(d => {
+                let p = d.Camaronera_Oficial || "Desconocida";
+                if(!provs[p]) provs[p] = { lotes:0, lbsProc:0, fSum:0, a:0, b:0, c:0, d:0, rej:0 };
+                provs[p].lotes++;
+                provs[p].lbsProc += d.Libras_Procesadas;
+                provs[p].fSum += (d.Perc_Fresco * d.Libras_Procesadas);
+                provs[p].a += d.Clases.A; 
+                provs[p].b += d.Clases.B; 
+                provs[p].c += d.Clases.C;
+                provs[p].d += d.Clases.D;
+                provs[p].rej += d.Rechazo;
             });
+            
+            let rankArr = Object.keys(provs).map(k => {
+                let o = provs[k];
+                let pa = o.lbsProc > 0 ? (o.a / o.lbsProc) * 100 : 0;
+                let pb = o.lbsProc > 0 ? (o.b / o.lbsProc) * 100 : 0;
+                let pc = o.lbsProc > 0 ? (o.c / o.lbsProc) * 100 : 0;
+                let pd = o.lbsProc > 0 ? (o.d / o.lbsProc) * 100 : 0;
+                let pr = o.lbsProc > 0 ? (o.rej / o.lbsProc) * 100 : 0;
+                
+                let totalPct = pa + pb + pc + pd + pr;
+                if(totalPct > 100) { pa = (pa/totalPct)*100; pb = (pb/totalPct)*100; pc = (pc/totalPct)*100; pd = (pd/totalPct)*100; pr = (pr/totalPct)*100; }
 
-            // Compute weighted averages and sort descending by % Prom. Fresco y Sano
-            const rankedList = Object.values(groups).map(g => {
-                const denom = g.libras || 1;
-                const lotesDenom = g.lotes || 1;
-                return {
-                    ...g,
-                    promFrescoSano: g.wFrescoSano / denom,
-                    promSaborCaract: g.wSaborCaract / denom,
-                    promDeltaGram: g.wDeltaGram / denom,
-                    pctA: (g.lotesA / lotesDenom) * 100,
-                    pctB: (g.lotesB / lotesDenom) * 100,
-                    pctC: (g.lotesC / lotesDenom) * 100,
-                    pctD: (g.lotesD / lotesDenom) * 100
+                return { 
+                    nombre: k, lotes: o.lotes, lbs: o.lbsProc, 
+                    fresco: o.lbsProc > 0 ? (o.fSum/o.lbsProc) : 0, 
+                    pa: pa, pb: pb, pc: pc, pd: pd, pr: pr
                 };
-            }).sort((a, b) => b.promFrescoSano - a.promFrescoSano);
+            }).sort((a,b)=> b.fresco - a.fresco);
 
-            // Render Ranking Table
-            const tbody = document.getElementById('rankingTableBody');
-            tbody.innerHTML = rankedList.map((item, idx) => {
-                const posBadge = idx === 0
-                    ? 'bg-emerald-600 text-white font-bold'
-                    : (idx < 3 ? 'bg-slate-800 text-white font-semibold' : 'bg-slate-100 text-slate-700 font-medium');
-
-                return `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="py-3 px-4 text-center">
-                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${posBadge}">${idx + 1}</span>
-                        </td>
-                        <td class="py-3 px-4 font-bold text-slate-900">${item.nombre}</td>
-                        <td class="py-3 px-3 text-right font-medium">${item.lotes}</td>
-                        <td class="py-3 px-3 text-right font-semibold text-slate-900">${Math.round(item.libras).toLocaleString('es-EC')} lb</td>
-                        <td class="py-3 px-3 text-center bg-slate-50 font-bold text-sm ${item.promFrescoSano >= 60 ? 'text-emerald-700' : 'text-rose-700'}">
-                            ${item.promFrescoSano.toFixed(2)}%
-                        </td>
-                        <td class="py-3 px-3 text-center font-semibold text-slate-700">${item.promSaborCaract.toFixed(1)}%</td>
-                        <td class="py-3 px-3 text-center font-medium ${item.promDeltaGram < -0.3 ? 'text-rose-700' : 'text-slate-700'}">
-                            ${item.promDeltaGram > 0 ? '+' : ''}${item.promDeltaGram.toFixed(2)} g
-                        </td>
-                        <td class="py-3 px-3 text-center font-bold text-emerald-700">${item.pctA.toFixed(1)}%</td>
-                        <td class="py-3 px-3 text-center font-semibold text-amber-700">${item.pctB.toFixed(1)}%</td>
-                        <td class="py-3 px-3 text-center font-semibold text-rose-700">${item.pctC.toFixed(1)}%</td>
-                        <td class="py-3 px-3 text-center font-semibold text-slate-700">${item.pctD.toFixed(1)}%</td>
-                        <td class="py-3 px-4">
-                            <div class="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden flex">
-                                <div style="width:${item.pctA}%" class="bg-emerald-600" title="Clase A: ${item.pctA.toFixed(1)}%"></div>
-                                <div style="width:${item.pctB}%" class="bg-amber-500" title="Clase B: ${item.pctB.toFixed(1)}%"></div>
-                                <div style="width:${item.pctC}%" class="bg-rose-600" title="Clase C: ${item.pctC.toFixed(1)}%"></div>
-                                <div style="width:${item.pctD}%" class="bg-slate-900" title="Clase D: ${item.pctD.toFixed(1)}%"></div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            // Render Bubble Chart (% Sabor Característico vs % Fresco y Sano)
-            const maxLbs = Math.max(...rankedList.map(r => r.libras), 1);
-            if (charts.bubbleProveedores) charts.bubbleProveedores.destroy();
-            charts.bubbleProveedores = new Chart(document.getElementById('chartBubbleProveedores'), {
-                type: 'bubble',
-                data: {
-                    datasets: rankedList.map((r, i) => ({
-                        label: r.nombre,
-                        data: [{
-                            x: +r.promSaborCaract.toFixed(1),
-                            y: +r.promFrescoSano.toFixed(1),
-                            r: Math.max(8, Math.round((r.libras / maxLbs) * 26))
-                        }],
-                        backgroundColor: r.promFrescoSano >= 60 && r.promSaborCaract >= 90
-                            ? 'rgba(5, 150, 105, 0.75)'
-                            : (r.promFrescoSano < 60 ? 'rgba(225, 29, 72, 0.75)' : 'rgba(217, 119, 6, 0.75)'),
-                        borderColor: '#0f172a',
-                        borderWidth: 1
-                    }))
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: % Fresco y Sano ${ctx.raw.y}% | Sabor Caract. ${ctx.raw.x}%`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: { display: true, text: '% Sabor Característico (Ponderado)', font: { size: 11, weight: '600' } },
-                            min: 40,
-                            max: 105,
-                            grid: { color: '#f1f5f9' }
-                        },
-                        y: {
-                            title: { display: true, text: '% Prom. Fresco y Sano (Ponderado)', font: { size: 11, weight: '600' } },
-                            min: 35,
-                            max: 95,
-                            grid: { color: '#f1f5f9' }
-                        }
-                    }
-                }
-            });
-
-            // Render 100% Stacked Bar Chart for Classes A, B, C, D
-            const labels = rankedList.map(r => r.nombre);
-            if (charts.stackedClases) charts.stackedClases.destroy();
-            charts.stackedClases = new Chart(document.getElementById('chartStackedClases'), {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: '% Clase A', data: rankedList.map(r => +r.pctA.toFixed(1)), backgroundColor: '#059669' },
-                        { label: '% Clase B', data: rankedList.map(r => +r.pctB.toFixed(1)), backgroundColor: '#d97706' },
-                        { label: '% Clase C', data: rankedList.map(r => +r.pctC.toFixed(1)), backgroundColor: '#e11d48' },
-                        { label: '% Clase D', data: rankedList.map(r => +r.pctD.toFixed(1)), backgroundColor: '#0f172a' }
-                    ]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
-                    },
-                    scales: {
-                        x: { stacked: true, max: 100, grid: { color: '#f1f5f9' }, ticks: { callback: v => v + '%' } },
-                        y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } }
-                    }
-                }
-            });
+            document.getElementById('tbody-ranking').innerHTML = rankArr.map((r, i) => `
+                <tr class="hover:bg-slate-50">
+                    <td><span class="bg-emerald-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs">${i+1}</span></td>
+                    <td class="font-bold">${r.nombre}</td>
+                    <td>${r.lotes}</td>
+                    <td class="font-mono">${r.lbs.toLocaleString('en-US', {maximumFractionDigits:0})} lb</td>
+                    <td class="font-bold text-emerald-700">${r.fresco.toFixed(2)}%</td>
+                    <td class="text-emerald-600 font-bold">${r.pa.toFixed(1)}%</td>
+                    <td class="text-amber-500 font-bold">${r.pb.toFixed(1)}%</td>
+                    <td class="text-rose-500 font-bold">${r.pc.toFixed(1)}%</td>
+                    <td class="text-indigo-500 font-bold">${r.pd.toFixed(1)}%</td>
+                    <td class="text-slate-600 font-bold">${r.pr.toFixed(1)}%</td>
+                    <td class="w-32">
+                        <div class="bar-composition">
+                            <div class="bar-a" style="width: ${r.pa}%"></div>
+                            <div class="bar-b" style="width: ${r.pb}%"></div>
+                            <div class="bar-c" style="width: ${r.pc}%"></div>
+                            <div class="bar-d" style="width: ${r.pd}%"></div>
+                            <div class="bar-rej" style="width: ${r.pr}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        // -------------------------------------------------------------------
-        // 8. TAB SWITCHING & CSV FETCHING FROM GITHUB REPOSITORY
-        // -------------------------------------------------------------------
-        function switchTab(tab) {
-            const tabDeg = document.getElementById('tabContentDegradacion');
-            const tabProv = document.getElementById('tabContentProveedores');
-            const btnDeg = document.getElementById('tabBtnDegradacion');
-            const btnProv = document.getElementById('tabBtnProveedores');
-
-            if (tab === 'degradacion') {
-                tabDeg.classList.remove('hidden');
-                tabProv.classList.add('hidden');
-                btnDeg.className = 'tab-active py-2 text-sm flex items-center gap-2 transition';
-                btnProv.className = 'tab-inactive py-2 text-sm flex items-center gap-2 transition';
-                renderTab1Charts();
-            } else {
-                tabDeg.classList.add('hidden');
-                tabProv.classList.remove('hidden');
-                btnProv.className = 'tab-active py-2 text-sm flex items-center gap-2 transition';
-                btnDeg.className = 'tab-inactive py-2 text-sm flex items-center gap-2 transition';
-                renderTab2SupplierAnalytics();
+        function filterCalorTable() {
+            let input = document.getElementById("searchCalor").value.toUpperCase();
+            let trs = document.getElementById("table-calor").getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+            for (let i = 0; i < trs.length; i++) {
+                let tdLote = trs[i].getElementsByTagName("td")[0];
+                let tdCam = trs[i].getElementsByTagName("td")[1];
+                let tdPis = trs[i].getElementsByTagName("td")[2];
+                if (tdLote || tdCam || tdPis) {
+                    let txt = (tdLote.textContent || tdLote.innerText) + " " + 
+                              (tdCam.textContent || tdCam.innerText) + " " + 
+                              (tdPis.textContent || tdPis.innerText);
+                    trs[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none";
+                }       
             }
         }
-
-        function parseCSVString(csvText) {
-            const res = Papa.parse(csvText.trim(), {
-                header: true,
-                skipEmptyLines: true,
-                transformHeader: h => h.trim()
-            });
-            return res.data || [];
-        }
-
-        async function loadGitHubCSVs() {
-            const badge = document.getElementById('dataSourceBadge');
-            try {
-                const [resSabor, resMeta] = await Promise.all([
-                    fetch('./Sabor_Desglosado_Validado.csv', { cache: 'no-store' }),
-                    fetch('./Metabisulfito_Validado.csv', { cache: 'no-store' })
-                ]);
-
-                if (!resSabor.ok || !resMeta.ok) {
-                    throw new Error('Archivos CSV no encontrados en la raíz del servidor.');
-                }
-
-                const [textSabor, textMeta] = await Promise.all([
-                    resSabor.text(),
-                    resMeta.text()
-                ]);
-
-                rawSaborRows = parseCSVString(textSabor);
-                rawMetaRows = parseCSVString(textMeta);
-
-                if (rawSaborRows.length === 0) {
-                    throw new Error('Sabor_Desglosado_Validado.csv está vacío.');
-                }
-
-                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Conectado a GitHub: <strong>Sabor_Desglosado_Validado.csv</strong> y <strong>Metabisulfito_Validado.csv</strong></span>`;
-                buildMasterDataset();
-            } catch (err) {
-                // Load embedded realistic data so preview works immediately
-                rawSaborRows = parseCSVString(FALLBACK_SABOR_CSV);
-                rawMetaRows = parseCSVString(FALLBACK_META_CSV);
-                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span><span>Vista Previa Activa (Aloje <strong>Sabor_Desglosado_Validado.csv</strong> y <strong>Metabisulfito_Validado.csv</strong> junto al index.html en GitHub)</span>`;
-                buildMasterDataset();
-            }
-        }
-
-        // Event Listeners
-        document.getElementById('btnToggleUpload').addEventListener('click', () => {
-            document.getElementById('uploadDrawer').classList.toggle('hidden');
-        });
-
-        document.getElementById('fileInputSabor').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                transformHeader: h => h.trim(),
-                complete: results => {
-                    rawSaborRows = results.data;
-                    document.getElementById('dataSourceBadge').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Archivo local cargado: <strong>${file.name}</strong></span>`;
-                    buildMasterDataset();
-                }
-            });
-        });
-
-        document.getElementById('fileInputMeta').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                transformHeader: h => h.trim(),
-                complete: results => {
-                    rawMetaRows = results.data;
-                    document.getElementById('dataSourceBadge').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Archivo local cargado: <strong>${file.name}</strong></span>`;
-                    buildMasterDataset();
-                }
-            });
-        });
-
-        ['filterProveedor', 'filterCamaronera', 'filterClase'].forEach(id => {
-            document.getElementById(id).addEventListener('change', applyFiltersAndRender);
-        });
-
-        document.getElementById('searchLoteInput').addEventListener('input', applyFiltersAndRender);
-        document.getElementById('rankingGroupBy').addEventListener('change', renderTab2SupplierAnalytics);
-
-        document.getElementById('btnResetFilters').addEventListener('click', () => {
-            document.getElementById('filterProveedor').value = 'ALL';
-            document.getElementById('filterCamaronera').value = 'ALL';
-            document.getElementById('filterClase').value = 'ALL';
-            document.getElementById('searchLoteInput').value = '';
-            applyFiltersAndRender();
-        });
-
-        window.addEventListener('DOMContentLoaded', loadGitHubCSVs);
+        
+        fetchInitialData();
     </script>
 </body>
 </html>
