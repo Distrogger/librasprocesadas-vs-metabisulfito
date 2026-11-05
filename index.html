@@ -72,7 +72,7 @@
                     <select id="filterClase" onchange="renderDashboard()" class="border border-slate-300 rounded px-3 py-2 text-sm w-full">
                         <option value="ALL">Todas</option>
                         <option value="A">Clase A</option>
-                        <option value="B">Clase B</option>
+                        <option value="B">Talla</option>
                         <option value="C">Clase C</option>
                         <option value="D">Clase D</option>
                     </select>
@@ -261,9 +261,7 @@
                 "848": "Camaronera Puna"
             };
 
-            if (mapeoPiscinaCamaronera[finalPis]) {
-                return mapeoPiscinaCamaronera[finalPis];
-            }
+            if (mapeoPiscinaCamaronera[finalPis]) return mapeoPiscinaCamaronera[finalPis];
             
             if (finalPis.startsWith("PU") && finalPis.length >= 3) return "Puerto Inca " + finalPis.charAt(2);
             if (finalPis.startsWith("PD")) return "Puna 2";
@@ -319,4 +317,179 @@
                     let res = await fetch(f.path);
                     if (!res.ok) { allLoaded = false; break; }
                     let text = await res.text();
-                    let parsed = Papa.parse(text, {
+                    let parsed = Papa.parse(text, { 
+                        header: true, 
+                        dynamicTyping: false, 
+                        skipEmptyLines: true 
+                    });
+                    db[f.key] = parsed.data;
+                }
+                
+                if(allLoaded && db.liquidaciones.length > 0) {
+                    initProcesamiento();
+                } else {
+                    document.getElementById('status-indicator').textContent = "Usa el botón para cargar CSVs locales";
+                }
+            } catch (e) {
+                document.getElementById('status-indicator').textContent = "Carga los CSVs manualmente";
+            }
+        }
+
+        function initProcesamiento() {
+            document.getElementById('status-indicator').textContent = "Procesando Datos...";
+            document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-800 rounded-full";
+            
+            let lotesMap = new Map();
+            let camaronerasSet = new Set();
+
+            db.liquidaciones.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(!lote) return;
+                
+                if(!lotesMap.has(lote)) {
+                    lotesMap.set(lote, {
+                        Lote: lote,
+                        Camaronera_Original_Omi: (getVal(row, ['Camaronera']) || "").trim(),
+                        Piscina_Omi: (getVal(row, ['Piscina']) || "").trim(),
+                        Camaronera_Oficial: "Desconocida",
+                        Piscina: "",
+                        Libras_Recibidas: parseNum(getVal(row, ['Libras Recibidas'])),
+                        Libras_Procesadas: parseNum(getVal(row, ['Libras Procesadas'])),
+                        Basura: parseNum(getVal(row, ['Basura'])),
+                        Rechazo: parseNum(getVal(row, ['Rechazo'])),
+                        Gramaje_OC: parseNum(getVal(row, ['Gramaje OC'])),
+                        Valor_Total: 0,
+                        Clases: { A: 0, B: 0, C: 0, D: 0, RECHAZO: 0 },
+                        TML: 0, TL: 0, TF: 0, 
+                        Combustible_TML: 0, Combustible_TL: 0, Combustible_TF: 0,
+                        Sabor_Caract: 0, Otros_Sabores: 0
+                    });
+                }
+                let l = lotesMap.get(lote);
+                l.Valor_Total += parseNum(getVal(row, ['Valor Total $']));
+                
+                let librasFilas = parseNum(getVal(row, ['Libras Totales']));
+                let claseStr = (getVal(row, ['Clase']) || "").toString().toUpperCase().trim();
+                let mpLiquidar = (getVal(row, ['Materia Prima a liquidar']) || "").toString().toUpperCase().trim();
+                
+                if(mpLiquidar.includes('RECHAZO') || mpLiquidar.includes('COLA')) {
+                    l.Clases.RECHAZO += librasFilas;
+                } else if(claseStr === 'A') l.Clases.A += librasFilas;
+                else if(claseStr === 'B') l.Clases.B += librasFilas;
+                else if(claseStr === 'C') l.Clases.C += librasFilas;
+                else if(claseStr === 'D') l.Clases.D += librasFilas;
+            });
+
+            let metaTemp = {};
+            db.metabisulfito.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(!lote) return;
+                if(!metaTemp[lote]) metaTemp[lote] = { totalLbs: 0, frescoSuma: 0, metaSuma: 0, manchaL: 0, manchaF: 0, bactL: 0 };
+                
+                let lbs = parseNum(getVal(row, ['Libras recibidas']));
+                metaTemp[lote].totalLbs += lbs;
+                metaTemp[lote].frescoSuma += parseNum(getVal(row, ['E. fresco y sano (%)'])) * lbs;
+                metaTemp[lote].metaSuma += parseNum(getVal(row, ['Porcentaje de metabisulfito'])) * lbs;
+                metaTemp[lote].manchaL += parseNum(getVal(row, ['E. mancha leve (%)'])) * lbs;
+                metaTemp[lote].manchaF += parseNum(getVal(row, ['E. mancha fuerte (%)'])) * lbs;
+                metaTemp[lote].bactL += parseNum(getVal(row, ['E. hongo/bacteria leve (%)'])) * lbs;
+            });
+
+            db.sabores.forEach(row => {
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
+                if(lotesMap.has(lote)) {
+                    let l = lotesMap.get(lote);
+                    let pisSab = (getVal(row, ['Piscina']) || "").trim();
+                    let camSab = (getVal(row, ['Camaronera']) || "").trim();
+                    
+                    l.Proveedor = (getVal(row, ['Proveedor']) || "Desconocido").trim();
+                    l.Piscina = pisSab || l.Piscina_Omi;
+                    
+                    l.Camaronera_Oficial = resolveCamaronera(camSab, pisSab, l.Camaronera_Original_Omi, l.Piscina_Omi);
+                    camaronerasSet.add(l.Camaronera_Oficial);
+                    
+                    l.Sabor_Caract = parseNum(getVal(row, ['Sabor caracteristico %']));
+                    
+                    l.TML = parseNum(getVal(row, ['Sabor tierra entero muy leve %']));
+                    l.TL = parseNum(getVal(row, ['Sabor tierra entero leve %']));
+                    l.TF = parseNum(getVal(row, ['Sabor tierra entero fuerte %']));
+                    
+                    l.Combustible_TML = parseNum(getVal(row, ['Sabor combustible entero muy leve %']));
+                    l.Combustible_TL = parseNum(getVal(row, ['Sabor combustible entero leve %']));
+                    l.Combustible_TF = parseNum(getVal(row, ['Sabor combustible entero fuerte %']));
+                    
+                    let sumaOtros = 0;
+                    for (let key in row) {
+                        if (key.trim().startsWith('Sabor') && key.trim().endsWith('%')) {
+                            let k = key.toLowerCase();
+                            if (k.includes('entero') && !k.includes('caracteristico') && !k.includes('tierra') && !k.includes('combustible')) {
+                                sumaOtros += parseNum(row[key]);
+                            }
+                        }
+                    }
+                    l.Otros_Sabores = sumaOtros;
+                    l.Diesel = l.Combustible_TF; 
+                }
+            });
+
+            Array.from(lotesMap.values()).forEach(l => {
+                let lote = l.Lote;
+                
+                if (l.Camaronera_Oficial === "Desconocida" && (l.Camaronera_Original_Omi || l.Piscina_Omi)) {
+                    l.Camaronera_Oficial = resolveCamaronera(null, null, l.Camaronera_Original_Omi, l.Piscina_Omi);
+                    camaronerasSet.add(l.Camaronera_Oficial);
+                }
+
+                if(metaTemp[lote] && metaTemp[lote].totalLbs > 0) {
+                    l.Perc_Fresco = metaTemp[lote].frescoSuma / metaTemp[lote].totalLbs;
+                    l.Perc_Meta = metaTemp[lote].metaSuma / metaTemp[lote].totalLbs;
+                    l.Mancha_Leve = metaTemp[lote].manchaL / metaTemp[lote].totalLbs;
+                    l.Mancha_Fuerte = metaTemp[lote].manchaF / metaTemp[lote].totalLbs;
+                    l.Bact_Leve = metaTemp[lote].bactL / metaTemp[lote].totalLbs;
+                } else {
+                    l.Perc_Fresco = 0; l.Perc_Meta = 0; l.Mancha_Leve = 0; l.Mancha_Fuerte = 0; l.Bact_Leve = 0;
+                }
+                
+                let maxLbs = 0;
+                let cValida = "-";
+                if(l.Clases.A > maxLbs) { cValida = 'A'; maxLbs = l.Clases.A; }
+                if(l.Clases.B > maxLbs) { cValida = 'B'; maxLbs = l.Clases.B; }
+                if(l.Clases.C > maxLbs) { cValida = 'C'; maxLbs = l.Clases.C; }
+                if(l.Clases.D > maxLbs) { cValida = 'D'; maxLbs = l.Clases.D; }
+                
+                l.Clase_Valida = (l.Diesel > 0) ? 'D' : cValida;
+            });
+
+            db.consolidado = Array.from(lotesMap.values());
+            
+            let camSelect = document.getElementById('filterCamaronera');
+            camSelect.innerHTML = '<option value="ALL">Todas</option>';
+            Array.from(camaronerasSet).sort().forEach(c => {
+                 let opt = document.createElement('option');
+                 opt.value = c; opt.innerHTML = c;
+                 camSelect.appendChild(opt);
+            });
+
+            renderDashboard();
+        }
+
+        // Creador de gráficas seguro (No colapsa si el canvas no existe)
+        function createChart(id, config) {
+            let canvas = document.getElementById(id);
+            if(!canvas) return; 
+            if(charts[id]) charts[id].destroy();
+            charts[id] = new Chart(canvas, config);
+        }
+
+        function getFilteredData() {
+            let filterCam = document.getElementById('filterCamaronera').value;
+            let filterClase = document.getElementById('filterClase').value;
+            
+            return db.consolidado.filter(d => {
+                let matchCam = filterCam === 'ALL' || d.Camaronera_Oficial === filterCam;
+                let matchClase = filterClase === 'ALL' || d.Clase_Valida === filterClase;
+                return matchCam && matchClase;
+            });
+        }
+
+        function renderDashboard() {
