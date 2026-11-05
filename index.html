@@ -28,8 +28,8 @@
         .bar-a { background-color: #10b981; }
         .bar-b { background-color: #f59e0b; }
         .bar-c { background-color: #ef4444; }
-        .bar-d { background-color: #6366f1; }
-        .bar-rej { background-color: #475569; }
+        .bar-d { background-color: #6366f1; } /* Indigo para Clase D */
+        .bar-rej { background-color: #475569; } /* Slate oscuro para Rechazo */
     </style>
 </head>
 <body class="text-slate-800">
@@ -72,7 +72,7 @@
                     <select id="filterClase" onchange="renderDashboard()" class="border border-slate-300 rounded px-3 py-2 text-sm w-full">
                         <option value="ALL">Todas</option>
                         <option value="A">Clase A</option>
-                        <option value="B">Talla</option>
+                        <option value="B">Clase B</option>
                         <option value="C">Clase C</option>
                         <option value="D">Clase D</option>
                     </select>
@@ -146,10 +146,7 @@
                         <h2 class="text-lg font-bold text-slate-800">MAPA DE CALOR POR LOTE, CAMARONERA Y PISCINA</h2>
                         <p class="text-xs text-slate-500">Desglose individual de defectos y sabores limitantes por lote recibido</p>
                     </div>
-                    <div class="flex gap-2 w-full md:w-auto">
-                        <input type="text" id="searchCalor" onkeyup="filterCalorTable()" placeholder="Buscar Lote o Proveedor..." class="border border-slate-300 rounded px-3 py-2 text-sm w-full">
-                        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold transition whitespace-nowrap"><i class="fa-solid fa-download mr-2"></i>Exportar CSV</button>
-                    </div>
+                    <input type="text" id="searchCalor" onkeyup="filterCalorTable()" placeholder="Buscar Lote o Proveedor..." class="border border-slate-300 rounded px-3 py-2 text-sm w-full md:w-1/3">
                 </div>
                 <div class="overflow-x-auto h-[500px]">
                     <table class="w-full gerencial-table relative whitespace-nowrap" id="table-calor">
@@ -234,11 +231,10 @@
             return parseFloat(cleanVal) || 0;
         }
 
-        // Extractor Inmune Avanzado
         function getVal(row, possibleKeys) {
             if (!Array.isArray(possibleKeys)) possibleKeys = [possibleKeys];
             for (let k in row) {
-                let cleanKey = k.replace(/[\uFEFF\u200B\u200C\u200D\u2028\u2029\"\'\\]/g, '').trim().toLowerCase();
+                let cleanKey = k.replace(/^\uFEFF/, '').replace(/^ï»¿/, '').trim().toLowerCase();
                 for (let pk of possibleKeys) {
                     if (cleanKey === pk.toLowerCase()) return row[k];
                 }
@@ -290,10 +286,6 @@
         document.getElementById('fileInput').addEventListener('change', function(e) {
             let files = e.target.files;
             let loaded = 0;
-            
-            if(files.length === 0) return;
-            document.getElementById('status-indicator').textContent = "Cargando archivos...";
-
             Array.from(files).forEach(file => {
                 Papa.parse(file, {
                     header: true, 
@@ -306,9 +298,7 @@
                         else if(name.includes('metabisulfito')) db.metabisulfito = results.data;
                         
                         loaded++;
-                        if(loaded === files.length) {
-                            checkAndProcess();
-                        }
+                        if(loaded === files.length) initProcesamiento();
                     }
                 });
             });
@@ -334,29 +324,14 @@
                     db[f.key] = parsed.data;
                 }
                 
-                if (allLoaded) {
-                    checkAndProcess();
+                if(allLoaded && db.liquidaciones.length > 0) {
+                    initProcesamiento();
                 } else {
                     document.getElementById('status-indicator').textContent = "Usa el botón para cargar CSVs locales";
                 }
             } catch (e) {
                 document.getElementById('status-indicator').textContent = "Carga los CSVs manualmente";
             }
-        }
-
-        function checkAndProcess() {
-            let missing = [];
-            if (!db.liquidaciones || db.liquidaciones.length === 0) missing.push("OMIPROD");
-            if (!db.sabores || db.sabores.length === 0) missing.push("Sabores");
-            if (!db.metabisulfito || db.metabisulfito.length === 0) missing.push("Metabisulfito");
-
-            if (missing.length > 0) {
-                document.getElementById('status-indicator').textContent = "Faltan: " + missing.join(", ");
-                document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full";
-                return;
-            }
-
-            initProcesamiento();
         }
 
         function initProcesamiento() {
@@ -366,12 +341,8 @@
             let lotesMap = new Map();
             let camaronerasSet = new Set();
 
-            // 1. OMIPROD0016
             db.liquidaciones.forEach(row => {
-                let loteRaw = getVal(row, ['Lote', 'lote']);
-                if (loteRaw === undefined) return;
-                
-                let lote = loteRaw.toString().trim();
+                let lote = (getVal(row, ['Lote']) || '').toString().trim();
                 if(!lote) return;
                 
                 if(!lotesMap.has(lote)) {
@@ -406,12 +377,6 @@
                 else if(claseStr === 'D') l.Clases.D += librasFilas;
             });
 
-            if (lotesMap.size === 0) {
-                document.getElementById('status-indicator').textContent = "Error: Columna 'Lote' no detectada en OMIPROD.";
-                document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-red-100 text-red-800 rounded-full";
-                return;
-            }
-
             let metaTemp = {};
             db.metabisulfito.forEach(row => {
                 let lote = (getVal(row, ['Lote']) || '').toString().trim();
@@ -445,19 +410,19 @@
                     l.TML = parseNum(getVal(row, ['Sabor tierra entero muy leve %']));
                     l.TL = parseNum(getVal(row, ['Sabor tierra entero leve %']));
                     l.TF = parseNum(getVal(row, ['Sabor tierra entero fuerte %']));
+                    l.Tierra_Max = l.TML + l.TL + l.TF;
                     
                     let sumaOtros = 0;
                     for (let key in row) {
                         if (key.trim().startsWith('Sabor') && key.trim().endsWith('%')) {
                             let k = key.toLowerCase();
-                            // Filtrar EXCLUSIVAMENTE entero, y excluir Característico y Tierra. Combustible se suma aquí.
                             if (k.includes('entero') && !k.includes('caracteristico') && !k.includes('tierra')) {
                                 sumaOtros += parseNum(row[key]);
                             }
                         }
                     }
                     l.Otros_Sabores = sumaOtros;
-                    l.Diesel = parseNum(getVal(row, ['Sabor combustible entero fuerte %'])); 
+                    l.Diesel = parseNum(getVal(row, ['Sabor combustible entero fuerte %']));
                 }
             });
 
@@ -500,13 +465,13 @@
             });
 
             renderDashboard();
+            document.getElementById('status-indicator').textContent = "Dashboard Actualizado";
+            document.getElementById('status-indicator').className = "text-xs font-semibold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full";
         }
 
         function createChart(id, config) {
-            let canvas = document.getElementById(id);
-            if (!canvas) return; 
             if(charts[id]) charts[id].destroy();
-            charts[id] = new Chart(canvas, config);
+            charts[id] = new Chart(document.getElementById(id), config);
         }
 
         function getFilteredData() {
@@ -521,28 +486,259 @@
         }
 
         function renderDashboard() {
-            try {
-                const data = getFilteredData();
-                if(data.length === 0) return; 
-                
-                let totalRecibidas = data.reduce((a,b)=>a+b.Libras_Recibidas, 0);
-                let totalProcesadas = data.reduce((a,b)=>a+b.Libras_Procesadas, 0);
-                let totalRechazo = data.reduce((a,b)=>a+b.Rechazo, 0);
-                let totalBasura = data.reduce((a,b)=>a+b.Basura, 0);
-                let totalClaseA = data.reduce((a,b)=>a+b.Clases.A, 0);
-                let totalClaseB = data.reduce((a,b)=>a+b.Clases.B, 0);
-                let totalClaseC = data.reduce((a,b)=>a+b.Clases.C, 0);
-                let totalClaseD = data.reduce((a,b)=>a+b.Clases.D, 0);
-                let totalValor = data.reduce((a,b)=>a+b.Valor_Total, 0);
-                
-                let rndIndustrial = totalRecibidas > 0 ? (totalProcesadas/totalRecibidas)*100 : 0;
-                let dowRechazo = totalProcesadas > 0 ? (totalRechazo/totalProcesadas)*100 : 0;
-                let recPremium = totalProcesadas > 0 ? (totalClaseA/totalProcesadas)*100 : 0;
+            const data = getFilteredData();
+            
+            let totalRecibidas = data.reduce((a,b)=>a+b.Libras_Recibidas, 0);
+            let totalProcesadas = data.reduce((a,b)=>a+b.Libras_Procesadas, 0);
+            let totalRechazo = data.reduce((a,b)=>a+b.Rechazo, 0);
+            let totalBasura = data.reduce((a,b)=>a+b.Basura, 0);
+            let totalClaseA = data.reduce((a,b)=>a+b.Clases.A, 0);
+            let totalClaseB = data.reduce((a,b)=>a+b.Clases.B, 0);
+            let totalClaseC = data.reduce((a,b)=>a+b.Clases.C, 0);
+            let totalClaseD = data.reduce((a,b)=>a+b.Clases.D, 0);
+            let totalValor = data.reduce((a,b)=>a+b.Valor_Total, 0);
+            
+            let rndIndustrial = totalRecibidas > 0 ? (totalProcesadas/totalRecibidas)*100 : 0;
+            let dowRechazo = totalProcesadas > 0 ? (totalRechazo/totalProcesadas)*100 : 0;
+            let recPremium = totalProcesadas > 0 ? (totalClaseA/totalProcesadas)*100 : 0;
 
-                document.getElementById('kpi-rendimiento').innerText = rndIndustrial.toFixed(1) + "%";
-                document.getElementById('kpi-rechazo').innerText = dowRechazo.toFixed(1) + "%";
-                document.getElementById('kpi-rechazo-sub').innerText = totalRechazo.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs desviadas";
-                document.getElementById('kpi-premium').innerText = recPremium.toFixed(1) + "%";
-                document.getElementById('kpi-premium-sub').innerText = totalClaseA.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs";
-                document.getElementById('kpi-procesadas').innerText = totalProcesadas.toLocaleString('en-US', {maximumFractionDigits:0});
-                document
+            document.getElementById('kpi-rendimiento').innerText = rndIndustrial.toFixed(1) + "%";
+            document.getElementById('kpi-rechazo').innerText = dowRechazo.toFixed(1) + "%";
+            document.getElementById('kpi-rechazo-sub').innerText = totalRechazo.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs desviadas";
+            document.getElementById('kpi-premium').innerText = recPremium.toFixed(1) + "%";
+            document.getElementById('kpi-premium-sub').innerText = totalClaseA.toLocaleString('en-US', {maximumFractionDigits:0}) + " lbs";
+            document.getElementById('kpi-procesadas').innerText = totalProcesadas.toLocaleString('en-US', {maximumFractionDigits:0});
+            document.getElementById('kpi-valor').innerText = "Valor Liq: $" + totalValor.toLocaleString('en-US', {maximumFractionDigits:0});
+
+            let baseCascada = totalRecibidas > 0 ? totalRecibidas : 1;
+            let pctBasura = (totalBasura / baseCascada) * 100;
+            let pctProcesadas = (totalProcesadas / baseCascada) * 100;
+            let pctRechazo = (totalRechazo / baseCascada) * 100;
+            let pctEntero = pctProcesadas - pctRechazo;
+            let valArray = [totalRecibidas, -totalBasura, totalProcesadas, -totalRechazo, totalProcesadas - totalRechazo];
+
+            createChart('chartWaterfall', {
+                type: 'bar',
+                data: {
+                    labels: ['1. Recibidas', '2. Merma/Basura', '3. Procesadas', '4. Desvío Cola', '5. Entero Final'],
+                    datasets: [{
+                        label: '% del Lote',
+                        data: [100, -pctBasura, pctProcesadas, -pctRechazo, pctEntero],
+                        backgroundColor: ['#94a3b8', '#fecdd3', '#3b82f6', '#f59e0b', '#10b981'],
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { 
+                            callbacks: { 
+                                label: (ctx) => {
+                                    let pct = Math.abs(ctx.raw).toFixed(2) + '%';
+                                    let val = Math.abs(valArray[ctx.dataIndex]).toLocaleString('en-US', {maximumFractionDigits:0}) + ' lbs';
+                                    return `${pct} (${val})`;
+                                }
+                            } 
+                        }
+                    },
+                    scales: { y: { suggestedMin: -10, suggestedMax: 100 } }
+                }
+            });
+
+            createChart('chartPie', {
+                type: 'pie',
+                plugins: [ChartDataLabels],
+                data: {
+                    labels: ['Clase A', 'Talla', 'Clase C', 'Clase D'],
+                    datasets: [{
+                        data: [totalClaseA, totalClaseB, totalClaseC, totalClaseD],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6366f1'],
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 12 },
+                            formatter: (value, ctx) => {
+                                let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (value === 0 || total === 0) return '';
+                                let percentage = ((value / total) * 100).toFixed(1) + '%';
+                                return percentage;
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw;
+                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    let percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                    return `${label}: ${percentage} (${value.toLocaleString()} lbs)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            let cls = { A:{lbs:0}, B:{lbs:0}, C:{lbs:0}, D:{lbs:0} };
+            data.forEach(d => {
+                if(d.Clase_Valida === 'A') cls.A.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'B') cls.B.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'C') cls.C.lbs += d.Libras_Procesadas;
+                if(d.Clase_Valida === 'D') cls.D.lbs += d.Libras_Procesadas;
+            });
+            let totValidas = cls.A.lbs + cls.B.lbs + cls.C.lbs + cls.D.lbs || 1;
+
+            document.getElementById('tbody-matriz').innerHTML = `
+                <tr>
+                    <td class="font-bold text-emerald-600">CLASE A</td>
+                    <td>60 - 100%</td>
+                    <td>Normal / TML &le; 20%</td>
+                    <td>ML &le; 3% | MF &lt; 5%</td>
+                    <td>&lt; 13%</td>
+                    <td class="font-bold text-emerald-700">${cls.A.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.A.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-amber-50/30">
+                    <td class="font-bold text-amber-600">TALLA</td>
+                    <td>46 - 59%</td>
+                    <td>TL &lt; 47% | TML &lt; 27%</td>
+                    <td>ML 4-8% | MF 5%</td>
+                    <td>14 - 20%</td>
+                    <td class="font-bold text-amber-600">${cls.B.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.B.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-rose-50/30">
+                    <td class="font-bold text-rose-600">CLASE C</td>
+                    <td>&le; 45%</td>
+                    <td>Excede límites B</td>
+                    <td>ML &ge; 9% | MF &gt; 5%</td>
+                    <td>&gt; 20%</td>
+                    <td class="font-bold text-rose-600">${cls.C.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.C.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+                <tr class="bg-indigo-50/30">
+                    <td class="font-bold text-indigo-800">CLASE D</td>
+                    <td colspan="4" class="text-indigo-600 font-semibold text-center">Presencia de Sabor Combustible / Diesel</td>
+                    <td class="font-bold text-indigo-700">${cls.D.lbs.toLocaleString('en-US',{maximumFractionDigits:0})} lb (${((cls.D.lbs/totValidas)*100).toFixed(1)}%)</td>
+                </tr>
+            `;
+
+            let arrLotes = [...data].sort((a,b) => b.Libras_Procesadas - a.Libras_Procesadas);
+            document.getElementById('tbody-calor').innerHTML = arrLotes.map(d => {
+                let fr = d.Perc_Fresco || 0;
+                let meta = d.Perc_Meta || 0;
+                let mlf = d.Mancha_Leve + d.Mancha_Fuerte || 0;
+                let bac = d.Bact_Leve || 0;
+                
+                let pA = d.Libras_Procesadas > 0 ? (d.Clases.A / d.Libras_Procesadas) * 100 : 0;
+                let pB = d.Libras_Procesadas > 0 ? (d.Clases.B / d.Libras_Procesadas) * 100 : 0;
+                let pC = d.Libras_Procesadas > 0 ? (d.Clases.C / d.Libras_Procesadas) * 100 : 0;
+                let pD = d.Libras_Procesadas > 0 ? (d.Clases.D / d.Libras_Procesadas) * 100 : 0;
+                
+                let badgeFr = fr >= 60 ? 'badge-green' : (fr >= 46 ? 'badge-yellow' : 'badge-red');
+                let colorA = pA >= 50 ? 'text-emerald-600' : (pA >= 20 ? 'text-emerald-500' : 'text-slate-600');
+                let colorB = pB >= 20 ? 'text-amber-600' : 'text-slate-600';
+                let colorC = pC > 0 ? 'text-rose-600' : 'text-slate-600';
+                let colorD = pD > 0 ? 'text-indigo-600' : 'text-slate-600';
+                
+                return `<tr>
+                    <td class="font-mono font-bold">${d.Lote}</td>
+                    <td class="font-semibold">${d.Camaronera_Oficial}</td>
+                    <td>${d.Piscina}</td>
+                    <td class="font-mono">${d.Libras_Procesadas.toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+                    <td><span class="${badgeFr}">${fr.toFixed(1)}%</span></td>
+                    <td class="font-mono text-slate-700">${meta.toFixed(1)}</td>
+                    <td class="bg-slate-50 font-bold text-emerald-700">${(d.Sabor_Caract || 0).toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TML.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TL.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-medium">${d.TF.toFixed(1)}%</td>
+                    <td class="bg-slate-50 font-bold text-slate-700">${d.Otros_Sabores.toFixed(1)}%</td>
+                    <td>${mlf.toFixed(1)}%</td>
+                    <td>${bac.toFixed(1)}%</td>
+                    <td class="font-bold ${colorA}">${pA.toFixed(1)}%</td>
+                    <td class="font-bold ${colorB}">${pB.toFixed(1)}%</td>
+                    <td class="font-bold ${colorC}">${pC.toFixed(1)}%</td>
+                    <td class="font-bold ${colorD}">${pD.toFixed(1)}%</td>
+                </tr>`;
+            }).join('');
+
+            let provs = {};
+            data.forEach(d => {
+                let p = d.Camaronera_Oficial || "Desconocida";
+                if(!provs[p]) provs[p] = { lotes:0, lbsProc:0, fSum:0, a:0, b:0, c:0, d:0, rej:0 };
+                provs[p].lotes++;
+                provs[p].lbsProc += d.Libras_Procesadas;
+                provs[p].fSum += (d.Perc_Fresco * d.Libras_Procesadas);
+                provs[p].a += d.Clases.A; 
+                provs[p].b += d.Clases.B; 
+                provs[p].c += d.Clases.C;
+                provs[p].d += d.Clases.D;
+                provs[p].rej += d.Rechazo;
+            });
+            
+            let rankArr = Object.keys(provs).map(k => {
+                let o = provs[k];
+                let pa = o.lbsProc > 0 ? (o.a / o.lbsProc) * 100 : 0;
+                let pb = o.lbsProc > 0 ? (o.b / o.lbsProc) * 100 : 0;
+                let pc = o.lbsProc > 0 ? (o.c / o.lbsProc) * 100 : 0;
+                let pd = o.lbsProc > 0 ? (o.d / o.lbsProc) * 100 : 0;
+                let pr = o.lbsProc > 0 ? (o.rej / o.lbsProc) * 100 : 0;
+                
+                let totalPct = pa + pb + pc + pd + pr;
+                if(totalPct > 100) { pa = (pa/totalPct)*100; pb = (pb/totalPct)*100; pc = (pc/totalPct)*100; pd = (pd/totalPct)*100; pr = (pr/totalPct)*100; }
+
+                return { 
+                    nombre: k, lotes: o.lotes, lbs: o.lbsProc, 
+                    fresco: o.lbsProc > 0 ? (o.fSum/o.lbsProc) : 0, 
+                    pa: pa, pb: pb, pc: pc, pd: pd, pr: pr
+                };
+            }).sort((a,b)=> b.fresco - a.fresco);
+
+            document.getElementById('tbody-ranking').innerHTML = rankArr.map((r, i) => `
+                <tr class="hover:bg-slate-50">
+                    <td><span class="bg-emerald-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs">${i+1}</span></td>
+                    <td class="font-bold">${r.nombre}</td>
+                    <td>${r.lotes}</td>
+                    <td class="font-mono">${r.lbs.toLocaleString('en-US', {maximumFractionDigits:0})} lb</td>
+                    <td class="font-bold text-emerald-700">${r.fresco.toFixed(2)}%</td>
+                    <td class="text-emerald-600 font-bold">${r.pa.toFixed(1)}%</td>
+                    <td class="text-amber-500 font-bold">${r.pb.toFixed(1)}%</td>
+                    <td class="text-rose-500 font-bold">${r.pc.toFixed(1)}%</td>
+                    <td class="text-indigo-500 font-bold">${r.pd.toFixed(1)}%</td>
+                    <td class="text-slate-600 font-bold">${r.pr.toFixed(1)}%</td>
+                    <td class="w-32">
+                        <div class="bar-composition">
+                            <div class="bar-a" style="width: ${r.pa}%"></div>
+                            <div class="bar-b" style="width: ${r.pb}%"></div>
+                            <div class="bar-c" style="width: ${r.pc}%"></div>
+                            <div class="bar-d" style="width: ${r.pd}%"></div>
+                            <div class="bar-rej" style="width: ${r.pr}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterCalorTable() {
+            let input = document.getElementById("searchCalor").value.toUpperCase();
+            let trs = document.getElementById("table-calor").getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+            for (let i = 0; i < trs.length; i++) {
+                let tdLote = trs[i].getElementsByTagName("td")[0];
+                let tdCam = trs[i].getElementsByTagName("td")[1];
+                let tdPis = trs[i].getElementsByTagName("td")[2];
+                if (tdLote || tdCam || tdPis) {
+                    let txt = (tdLote.textContent || tdLote.innerText) + " " + 
+                              (tdCam.textContent || tdCam.innerText) + " " + 
+                              (tdPis.textContent || tdPis.innerText);
+                    trs[i].style.display = txt.toUpperCase().indexOf(input) > -1 ? "" : "none";
+                }       
+            }
+        }
+        
+        fetchInitialData();
+    </script>
+</body>
+</html>
